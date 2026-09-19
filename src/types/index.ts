@@ -89,24 +89,24 @@ export interface GenerationJob {
   process_id: string;
   user_id: string;
   document_type: DocumentType;
-  special_instructions?: string;
+  special_instructions?: string | null;
   status: JobStatus;
   current_step: number;
-  error_message?: string;
+  error_message?: string | null;
   created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  process_data: {
+  started_at?: string | null;
+  completed_at?: string | null;
+  process?: Process;
+  process_data?: {
     process_number: string;
     court: string;
     represented_party: string;
     subjects: string[];
-    file_name: string;
-    file_size: number;
-    opposing_party?: string;
-    claim_value?: string;
+    file_name?: string;
+    file_size?: number;
   };
-  steps: GenerationStep[];
+  steps?: GenerationStep[];
+  source_document?: SourceDocument;
 }
 
 export interface SourceDocument {

@@ -159,16 +159,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {jobs.slice(0, 5).map((job) => (
                   <tr key={job.id} className="hover:bg-slate-900/40 transition">
                     <td className="px-4 py-3 font-mono-tech font-medium text-slate-200">
-                      <div>{job.process_data.process_number}</div>
+                      <div>{job.process_data?.process_number || job.process?.process_number || 'N/A'}</div>
                       <div className="text-[10px] text-slate-400 font-sans truncate max-w-[200px]">
-                        {job.process_data.court}
+                        {job.process_data?.court || job.process?.court || 'N/A'}
                       </div>
                     </td>
 
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-200">{job.document_type}</div>
                       <div className="flex flex-wrap gap-1 mt-0.5">
-                        {job.process_data.subjects.map((sub, idx) => (
+                        {(job.process_data?.subjects || []).map((sub, idx) => (
                           <span
                             key={idx}
                             className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700"
@@ -180,7 +180,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </td>
 
                     <td className="px-4 py-3 text-slate-300">
-                      {job.process_data.represented_party}
+                      {job.process_data?.represented_party || job.process?.represented_party || 'N/A'}
                     </td>
 
                     <td className="px-4 py-3">

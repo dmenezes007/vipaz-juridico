@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
-import { Check, Plus, Tag, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, Tag, X } from 'lucide-react';
 
-interface SubjectMultiSelectProps {
-  selected: string[];
-  onChange: (subjects: string[]) => void;
-  options?: string[];
+export interface SelectedSubjectItem {
+  subject: string;
+  custom_subject?: string | null;
 }
 
-const DEFAULT_OPTIONS = [
+interface SubjectMultiSelectProps {
+  selected: SelectedSubjectItem[];
+  onChange: (subjects: SelectedSubjectItem[]) => void;
+  options?: string[];
+  disabled?: boolean;
+  error?: string;
+}
+
+export const VALID_SUBJECT_OPTIONS = [
   'Reajuste Plano PME',
   'Reajuste Plano Individual',
   'Aviso Prévio',
@@ -18,40 +25,58 @@ const DEFAULT_OPTIONS = [
 export const SubjectMultiSelect: React.FC<SubjectMultiSelectProps> = ({
   selected,
   onChange,
-  options = DEFAULT_OPTIONS,
+  options = VALID_SUBJECT_OPTIONS,
+  disabled = false,
+  error,
 }) => {
-  const [customInput, setCustomInput] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(
-    selected.some((s) => !DEFAULT_OPTIONS.filter((o) => o !== 'Outro').includes(s) && s !== 'Outro')
-  );
+  const outroItem = selected.find((s) => s.subject === 'Outro');
+  const isOutroSelected = Boolean(outroItem);
+  const [customText, setCustomText] = useState(outroItem?.custom_subject || '');
+
+  useEffect(() => {
+    if (outroItem && outroItem.custom_subject !== customText) {
+      setCustomText(outroItem.custom_subject || '');
+    }
+  }, [outroItem]);
 
   const toggleOption = (opt: string) => {
+    if (disabled) return;
+
     if (opt === 'Outro') {
-      setShowCustomInput(!showCustomInput);
+      if (isOutroSelected) {
+        // Desmarca Outro
+        onChange(selected.filter((s) => s.subject !== 'Outro'));
+      } else {
+        // Marca Outro com o texto atual
+        onChange([...selected, { subject: 'Outro', custom_subject: customText.trim() || null }]);
+      }
       return;
     }
 
-    if (selected.includes(opt)) {
-      onChange(selected.filter((item) => item !== opt));
+    const exists = selected.some((s) => s.subject === opt);
+    if (exists) {
+      onChange(selected.filter((s) => s.subject !== opt));
     } else {
-      onChange([...selected, opt]);
+      onChange([...selected, { subject: opt, custom_subject: null }]);
     }
   };
 
-  const handleAddCustom = (e: React.KeyboardEvent | React.MouseEvent) => {
-    if ('key' in e && e.key !== 'Enter') return;
-    e.preventDefault();
-    if (!customInput.trim()) return;
+  const handleCustomTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setCustomText(val);
 
-    const trimmed = customInput.trim();
-    if (!selected.includes(trimmed)) {
-      onChange([...selected, trimmed]);
+    if (isOutroSelected) {
+      onChange(
+        selected.map((s) =>
+          s.subject === 'Outro' ? { ...s, custom_subject: val } : s
+        )
+      );
     }
-    setCustomInput('');
   };
 
-  const removeSelected = (item: string) => {
-    onChange(selected.filter((s) => s !== item));
+  const removeSelected = (subjectName: string) => {
+    if (disabled) return;
+    onChange(selected.filter((s) => s.subject !== subjectName));
   };
 
   return (
@@ -59,20 +84,26 @@ export const SubjectMultiSelect: React.FC<SubjectMultiSelectProps> = ({
       {/* Pills selector */}
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
-          const isSelected = option === 'Outro' ? showCustomInput : selected.includes(option);
+          const isSelected =
+            option === 'Outro'
+              ? isOutroSelected
+              : selected.some((s) => s.subject === option);
 
           return (
             <button
               type="button"
               key={option}
+              disabled={disabled}
               onClick={() => toggleOption(option)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 isSelected
                   ? 'bg-cyan-950/50 border-cyan-500/50 text-cyan-200 ring-1 ring-cyan-500/20'
                   : 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:border-slate-600 hover:bg-slate-800/60'
               }`}
             >
-              {isSelected && option !== 'Outro' ? (
+              {isSelected ? (
                 <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               ) : (
                 <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -83,25 +114,28 @@ export const SubjectMultiSelect: React.FC<SubjectMultiSelectProps> = ({
         })}
       </div>
 
-      {/* Custom input if "Outro" selected */}
-      {showCustomInput && (
-        <div className="flex items-center gap-2 p-3 bg-slate-900/40 border border-slate-700/60 rounded-lg">
+      {/* Custom input if "Outro" is selected */}
+      {isOutroSelected && (
+        <div className="p-3 bg-slate-900/50 border border-cyan-500/30 rounded-lg space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-cyan-300">
+              Descreva a matéria específica do caso <span className="text-rose-400">*</span>
+            </label>
+            <span className="text-[10px] text-slate-400 font-mono-tech">Obrigatório para &quot;Outro&quot;</span>
+          </div>
           <input
             type="text"
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            onKeyDown={handleAddCustom}
-            placeholder="Informe a matéria específica (ex: Limitação de Coparticipação)"
-            className="flex-1 bg-slate-800/80 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            disabled={disabled}
+            value={customText}
+            onChange={handleCustomTextChange}
+            placeholder="Ex: Limitação de Coparticipação em Tratamento Continuado"
+            className="w-full bg-slate-800/90 border border-slate-700 rounded-md px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
-          <button
-            type="button"
-            onClick={handleAddCustom}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-cyan-600 hover:bg-cyan-500 text-white transition shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Adicionar
-          </button>
+          {!customText.trim() && (
+            <p className="text-[11px] text-amber-400">
+              Preencha o nome da matéria para prosseguir com a seleção.
+            </p>
+          )}
         </div>
       )}
 
@@ -111,14 +145,20 @@ export const SubjectMultiSelect: React.FC<SubjectMultiSelectProps> = ({
           <span className="text-[11px] text-slate-400 font-medium mr-1">Selecionadas:</span>
           {selected.map((item) => (
             <span
-              key={item}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700 text-xs text-slate-200"
+              key={item.subject}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/90 border border-slate-700 text-xs text-slate-200"
             >
-              <span>{item}</span>
+              <span>
+                {item.subject === 'Outro'
+                  ? `Outro: ${item.custom_subject?.trim() || '(preencher)'}`
+                  : item.subject}
+              </span>
               <button
                 type="button"
-                onClick={() => removeSelected(item)}
-                className="hover:text-rose-400 transition"
+                disabled={disabled}
+                onClick={() => removeSelected(item.subject)}
+                className="text-slate-400 hover:text-rose-400 transition"
+                title="Remover matéria"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -126,6 +166,8 @@ export const SubjectMultiSelect: React.FC<SubjectMultiSelectProps> = ({
           ))}
         </div>
       )}
+
+      {error && <p className="text-[11px] text-rose-400">{error}</p>}
     </div>
   );
 };
