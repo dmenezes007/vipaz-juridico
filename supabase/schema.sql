@@ -322,6 +322,41 @@ BEGIN
 END;
 $$;
 
+-- Safely extract and validate the organization UUID from a storage object path
+-- Expected patterns:
+--   source-documents:    {organization_id}/{process_id}/{generation_job_id}/{filename}
+--   generated-documents: {organization_id}/{generation_job_id}/{filename}
+CREATE OR REPLACE FUNCTION public.storage_path_organization_id(object_name TEXT)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+STABLE
+AS $$
+DECLARE
+  cleaned_path TEXT;
+  first_segment TEXT;
+BEGIN
+  IF object_name IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Strip leading slashes or whitespace
+  cleaned_path := ltrim(trim(object_name), '/');
+  first_segment := split_part(cleaned_path, '/', 1);
+
+  -- Strict validation of UUID format (8-4-4-4-12 hexadecimal characters)
+  IF first_segment ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    RETURN first_segment::UUID;
+  END IF;
+
+  RETURN NULL;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$;
+
 -- Automatic profile creation on new user signup in auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -745,45 +780,100 @@ BEGIN
 END;
 $$;
 
--- Storage RLS Policies (Applied when storage.objects exists)
+-- Storage Multi-Tenant RLS Policies (Applied when storage.objects exists)
 DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.tables 
     WHERE table_schema = 'storage' AND table_name = 'objects'
   ) THEN
-    -- Ensure RLS is active on storage.objects
-    ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
-    -- Drop previous conflicting policies if any
+    -- Drop previous conflicting or generic policies if any
     DROP POLICY IF EXISTS "source_documents_authenticated_read" ON storage.objects;
     DROP POLICY IF EXISTS "source_documents_authenticated_insert" ON storage.objects;
     DROP POLICY IF EXISTS "generated_documents_authenticated_read" ON storage.objects;
     DROP POLICY IF EXISTS "generated_documents_authenticated_insert" ON storage.objects;
+    DROP POLICY IF EXISTS "source_documents_tenant_select" ON storage.objects;
+    DROP POLICY IF EXISTS "source_documents_tenant_insert" ON storage.objects;
+    DROP POLICY IF EXISTS "source_documents_tenant_update" ON storage.objects;
+    DROP POLICY IF EXISTS "source_documents_tenant_delete" ON storage.objects;
+    DROP POLICY IF EXISTS "generated_documents_tenant_select" ON storage.objects;
+    DROP POLICY IF EXISTS "generated_documents_tenant_insert" ON storage.objects;
+    DROP POLICY IF EXISTS "generated_documents_tenant_update" ON storage.objects;
+    DROP POLICY IF EXISTS "generated_documents_tenant_delete" ON storage.objects;
 
-    -- Read policy for source-documents
-    CREATE POLICY "source_documents_authenticated_read"
+    -- ------------------------------------------------------------------
+    -- SOURCE DOCUMENTS (Process Court PDFs)
+    -- Path: {organization_id}/{process_id}/{generation_job_id}/{filename}
+    -- ------------------------------------------------------------------
+
+    -- SELECT: Member of the tenant in the first path segment
+    CREATE POLICY "source_documents_tenant_select"
       ON storage.objects FOR SELECT
       TO authenticated
-      USING (bucket_id = 'source-documents');
+      USING (
+        bucket_id = 'source-documents'
+        AND public.user_belongs_to_org(public.storage_path_organization_id(name))
+      );
 
-    -- Upload policy for source-documents
-    CREATE POLICY "source_documents_authenticated_insert"
+    -- INSERT: Authorized role (admin, senior_lawyer, lawyer) in the tenant
+    CREATE POLICY "source_documents_tenant_insert"
       ON storage.objects FOR INSERT
       TO authenticated
-      WITH CHECK (bucket_id = 'source-documents');
+      WITH CHECK (
+        bucket_id = 'source-documents'
+        AND public.user_has_org_role(
+          public.storage_path_organization_id(name),
+          ARRAY['admin', 'senior_lawyer', 'lawyer']
+        )
+      );
 
-    -- Read policy for generated-documents
-    CREATE POLICY "generated_documents_authenticated_read"
+    -- UPDATE: Authorized role (admin, senior_lawyer, lawyer) in the tenant
+    CREATE POLICY "source_documents_tenant_update"
+      ON storage.objects FOR UPDATE
+      TO authenticated
+      USING (
+        bucket_id = 'source-documents'
+        AND public.user_has_org_role(
+          public.storage_path_organization_id(name),
+          ARRAY['admin', 'senior_lawyer', 'lawyer']
+        )
+      )
+      WITH CHECK (
+        bucket_id = 'source-documents'
+        AND public.user_has_org_role(
+          public.storage_path_organization_id(name),
+          ARRAY['admin', 'senior_lawyer', 'lawyer']
+        )
+      );
+
+    -- DELETE: Organization admins or senior lawyers only
+    CREATE POLICY "source_documents_tenant_delete"
+      ON storage.objects FOR DELETE
+      TO authenticated
+      USING (
+        bucket_id = 'source-documents'
+        AND public.user_has_org_role(
+          public.storage_path_organization_id(name),
+          ARRAY['admin', 'senior_lawyer']
+        )
+      );
+
+    -- ------------------------------------------------------------------
+    -- GENERATED DOCUMENTS (Final Forensic DOCX / PDF)
+    -- Path: {organization_id}/{generation_job_id}/{filename}
+    -- Frontend users can only SELECT objects of their organization.
+    -- Uploads and modifications are strictly server-side (orchestrator service_role).
+    -- ------------------------------------------------------------------
+
+    -- SELECT: Member of the tenant in the first path segment
+    CREATE POLICY "generated_documents_tenant_select"
       ON storage.objects FOR SELECT
       TO authenticated
-      USING (bucket_id = 'generated-documents');
+      USING (
+        bucket_id = 'generated-documents'
+        AND public.user_belongs_to_org(public.storage_path_organization_id(name))
+      );
 
-    -- Upload policy for generated-documents
-    CREATE POLICY "generated_documents_authenticated_insert"
-      ON storage.objects FOR INSERT
-      TO authenticated
-      WITH CHECK (bucket_id = 'generated-documents');
   END IF;
 END;
 $$;
