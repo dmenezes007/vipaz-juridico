@@ -452,7 +452,7 @@ export class GenerationService {
           'A condenação da parte demandante nas verbas sucumbenciais e honorários advocatícios cabíveis;',
           'Protesta pela produção de todas as provas em direito admitidas, especialmente pericial atuarial e juntada de novos documentos.',
         ],
-        closing: `Nestes termos,\nPede deferimento.\n\nSão Paulo, ${new Date().toLocaleDateString('pt-BR')}.\n\nCAW ADVOGADOS ASSOCIADOS\n${authService.getCurrentUser()?.full_name || 'Dr. Alexandre Castro'} — ${authService.getCurrentUser()?.oab || 'OAB/SP 289.412'}`,
+        closing: `Nestes termos,\nPede deferimento.\n\nSão Paulo, ${new Date().toLocaleDateString('pt-BR')}.\n\n${(authService.getCurrentOrganization()?.name || 'CAW ADVOGADOS ASSOCIADOS').toUpperCase()}\n${authService.getCurrentUser()?.full_name || 'Advogado Responsável'}${authService.getCurrentUser()?.oab ? ' — ' + authService.getCurrentUser()?.oab : ''}`,
       },
     };
 

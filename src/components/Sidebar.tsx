@@ -164,14 +164,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
-                  {user?.full_name?.charAt(0) || 'A'}
+                  {user?.full_name?.charAt(0) || 'U'}
                 </div>
                 <div className="overflow-hidden">
                   <div className="text-xs font-medium text-slate-200 truncate">
-                    {user?.full_name || 'Advogado'}
+                    {user?.full_name || 'Usuário'}
                   </div>
                   <div className="text-[10px] text-slate-500 truncate">
-                    {user?.oab || 'OAB/SP'}
+                    {user?.oab || (user?.role === 'admin' ? 'Administrador' : user?.role === 'senior_lawyer' ? 'Advogado Sênior' : user?.role === 'reviewer' ? 'Revisor' : 'Advogado')}
                   </div>
                 </div>
               </div>

@@ -15,6 +15,21 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenTenantSwitcher,
   onToggleMobileMenu,
 }) => {
+  const formatRole = (role?: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrador';
+      case 'senior_lawyer':
+        return 'Advogado Sênior';
+      case 'lawyer':
+        return 'Advogado';
+      case 'reviewer':
+        return 'Revisor Jurídico';
+      default:
+        return '';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 h-16 bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-800/80 px-4 md:px-8 flex items-center justify-between">
       {/* Left side: Mobile Toggle & Tenant Breadcrumb */}
@@ -50,10 +65,10 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
           <div className="hidden sm:block text-right">
             <div className="text-xs font-semibold text-slate-200">
-              {user?.full_name || 'Dr. Alexandre Castro'}
+              {user?.full_name || 'Usuário'}
             </div>
             <div className="text-[11px] text-slate-400">
-              {user?.oab || 'OAB/SP 289.412'}
+              {user?.oab || formatRole(user?.role)}
             </div>
           </div>
 

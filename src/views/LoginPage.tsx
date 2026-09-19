@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck, Check, AlertCircle, Sparkles } from 'lucide-react';
-import { authService, SEED_PROFILES } from '../services/authService';
+import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, Info } from 'lucide-react';
+import { authService, AuthError } from '../services/authService';
 
 interface LoginPageProps {
   onLoginSuccess: (tenantSlug: string) => void;
   onNavigateHome: () => void;
+  initialErrorMessage?: string | null;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   onLoginSuccess,
   onNavigateHome,
+  initialErrorMessage,
 }) => {
   const [email, setEmail] = useState('alexandre.castro@cawadvogados.com.br');
-  const [password, setPassword] = useState('••••••••••••');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage || null);
   const [forgotPasswordNotice, setForgotPasswordNotice] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,22 +27,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
+    if (!password) {
+      setErrorMessage('Por favor, informe sua senha de acesso.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
+    setForgotPasswordNotice(false);
 
     try {
-      const session = await authService.login(email, password, rememberMe);
+      const session = await authService.login(email, password);
       onLoginSuccess(session.organization.slug);
     } catch (err) {
-      setErrorMessage('Não foi possível autenticar. Verifique suas credenciais de acesso.');
+      if (err instanceof AuthError) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage('Não foi possível autenticar. Verifique suas credenciais de acesso.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectDemoUser = (userEmail: string) => {
-    setEmail(userEmail);
-    setPassword('••••••••••••');
+  const handleSelectEvaluationEmail = (evalEmail: string) => {
+    setEmail(evalEmail);
+    setPassword('');
+    setErrorMessage(null);
+    setForgotPasswordNotice(false);
+  };
+
+  // TODO: Implementar fluxo completo de recuperação de senha via Supabase Auth (resetPasswordForEmail com SMTP personalizado)
+  const handleForgotPassword = () => {
+    setForgotPasswordNotice(true);
   };
 
   return (
@@ -78,16 +97,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {errorMessage && (
-            <div className="flex items-center gap-2 p-3 bg-rose-950/40 border border-rose-500/30 rounded-lg text-xs text-rose-300">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="flex items-start gap-2.5 p-3 bg-rose-950/40 border border-rose-500/30 rounded-lg text-xs text-rose-300 leading-relaxed">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {forgotPasswordNotice && (
             <div className="p-3 bg-cyan-950/40 border border-cyan-500/30 rounded-lg text-xs text-cyan-300 space-y-1">
-              <div className="font-semibold">Recuperação de Acesso:</div>
-              <div>As instruções foram enviadas para o administrador do tenant {email.includes('caw') ? 'CAW' : 'Invicta'}.</div>
+              <div className="flex items-center gap-1.5 font-semibold text-cyan-200">
+                <Info className="w-3.5 h-3.5" />
+                <span>Recuperação de Acesso:</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Por política de segurança deste ambiente corporativo, a redefinição de senha deve ser solicitada ao administrador de tecnologia da sua organização.
+              </p>
             </div>
           )}
 
@@ -114,10 +138,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <label className="block text-xs font-medium text-slate-300">
                   Senha
                 </label>
+                {/* Visualmente disponível, identificada internamente como TODO e desabilitada sem simular falso sucesso */}
                 <button
                   type="button"
-                  onClick={() => setForgotPasswordNotice(true)}
+                  onClick={handleForgotPassword}
                   className="text-[11px] text-cyan-400 hover:text-cyan-300 transition"
+                  title="TODO: Recuperação de senha via Supabase Auth"
                 >
                   Esqueci minha senha
                 </button>
@@ -129,7 +155,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Informe sua senha"
                   className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 font-mono-tech"
                 />
               </div>
@@ -167,7 +193,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </button>
           </form>
 
-          {/* Quick Demo profiles */}
+          {/* Quick Demo profiles / Evaluation hint */}
           <div className="pt-4 border-t border-slate-800 space-y-2.5">
             <span className="text-[11px] font-mono-tech text-slate-400 uppercase tracking-wider block text-center">
               ACESSOS HOMOLOGADOS PARA AVALIAÇÃO:
@@ -176,7 +202,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
-                onClick={() => selectDemoUser(SEED_PROFILES[0].email)}
+                onClick={() => handleSelectEvaluationEmail('alexandre.castro@cawadvogados.com.br')}
                 className="w-full p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 text-left transition flex items-center justify-between"
               >
                 <div>
@@ -194,7 +220,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               <button
                 type="button"
-                onClick={() => selectDemoUser(SEED_PROFILES[2].email)}
+                onClick={() => handleSelectEvaluationEmail('roberto.siqueira@invicta.gov.br')}
                 className="w-full p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 text-left transition flex items-center justify-between"
               >
                 <div>

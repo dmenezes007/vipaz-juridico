@@ -11,7 +11,7 @@ interface AppShellProps {
   organization: Organization;
   user: Profile | null;
   onLogout: () => void;
-  onSwitchTenant: (slug: 'caw' | 'invicta') => void;
+  onSwitchTenant: (slug: string) => void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { authService, AuthSession, ORGANIZATIONS } from './services/authService';
+import { authService, AuthSession } from './services/authService';
 import { LandingPage } from './views/LandingPage';
 import { LoginPage } from './views/LoginPage';
 import { AppShell } from './components/AppShell';
@@ -7,17 +7,22 @@ import { DashboardView } from './views/DashboardView';
 import { NovaPecaView } from './views/NovaPecaView';
 import { GeracaoView } from './views/GeracaoView';
 import { DocumentosView } from './views/DocumentosView';
+import { ShieldAlert, LogOut, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<AuthSession | null>(authService.getSession());
+  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(authService.isInitialLoading());
+  const [userWithoutOrg, setUserWithoutOrg] = useState<boolean>(authService.isUserWithoutOrg());
   const [currentPath, setCurrentPath] = useState<string>(() => {
     return window.location.pathname || '/';
   });
 
-  // Listen for auth state changes
+  // Listen for auth state changes from Supabase
   useEffect(() => {
     const unsubscribe = authService.subscribe((newSession) => {
       setSession(newSession);
+      setIsLoadingAuth(authService.isInitialLoading());
+      setUserWithoutOrg(authService.isUserWithoutOrg());
     });
     return unsubscribe;
   }, []);
@@ -45,9 +50,64 @@ export default function App() {
     navigate('/login');
   };
 
-  const handleSwitchTenant = (slug: 'caw' | 'invicta') => {
-    authService.switchTenant(slug);
+  const handleSwitchTenant = (slug: string) => {
+    try {
+      authService.switchTenant(slug);
+      navigate(`/app/${slug}`);
+    } catch {
+      // Ignora tentativa para tenant não autorizado
+    }
   };
+
+  // Initial Auth Loading Screen
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="font-editorial text-2xl font-bold text-white">VIPAZ</span>
+          <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400 font-sans border-l border-slate-700 pl-2">
+            Jurídico
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5 text-xs text-slate-400 font-mono-tech">
+          <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+          <span>Verificando credenciais e integridade da sessão...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // User Authenticated in Supabase but without active organization
+  if (userWithoutOrg) {
+    return (
+      <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-cyan-500/30">
+        <div className="w-full max-w-md bg-[#0B1325] border border-amber-500/30 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-lg font-bold text-white font-sans">
+              Organização Não Localizada
+            </h1>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Seu usuário está autenticado, mas ainda não possui acesso a uma organização do VIPAZ Jurídico. Entre em contato com o administrador.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={handleLogout}
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold tracking-wider uppercase transition cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Encerrar Sessão / Voltar ao Login</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Route 1: Landing Page
   if (currentPath === '/' || currentPath === '') {
@@ -56,6 +116,24 @@ export default function App() {
 
   // Route 2: Login Page
   if (currentPath === '/login') {
+    // Se o usuário já estiver autenticado com organização válida, redireciona diretamente ao seu tenant
+    if (session) {
+      const target = `/app/${session.organization.slug}`;
+      window.history.replaceState({}, '', target);
+      return (
+        <AppShell
+          currentPath={target}
+          onNavigate={navigate}
+          organization={session.organization}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <DashboardView organization={session.organization} onNavigate={navigate} />
+        </AppShell>
+      );
+    }
+
     return (
       <LoginPage
         onLoginSuccess={(tenantSlug) => {
@@ -68,8 +146,9 @@ export default function App() {
 
   // Authenticated Area Protection: /app/*
   if (currentPath.startsWith('/app')) {
-    // If not authenticated, redirect to login
+    // If not authenticated, redirect to /login
     if (!session) {
+      window.history.replaceState({}, '', '/login');
       return (
         <LoginPage
           onLoginSuccess={(tenantSlug) => {
@@ -82,7 +161,7 @@ export default function App() {
 
     const currentOrg = session.organization;
 
-    // Normalizes /app or /app/ without tenant to active tenant
+    // Normalizes /app or /app/ without tenant to the user's active tenant
     if (currentPath === '/app' || currentPath === '/app/') {
       const target = `/app/${currentOrg.slug}`;
       window.history.replaceState({}, '', target);
@@ -97,6 +176,42 @@ export default function App() {
         >
           <DashboardView organization={currentOrg} onNavigate={navigate} />
         </AppShell>
+      );
+    }
+
+    // Extract tenant slug from URL: /app/:slug/...
+    const slugMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)/);
+    const requestedSlug = slugMatch ? slugMatch[1] : '';
+
+    // Validate tenant association in Supabase
+    if (requestedSlug && !authService.hasAccessToTenant(requestedSlug)) {
+      return (
+        <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4 text-center selection:bg-cyan-500/30">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5 max-w-md">
+            <h1 className="text-xl font-bold font-sans text-white">Acesso Não Autorizado</h1>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Seu usuário não possui associação ativa com o ambiente da organização solicitada (<code className="text-rose-300 font-mono-tech font-bold">{requestedSlug}</code>).
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              onClick={() => navigate(`/app/${currentOrg.slug}`)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition"
+            >
+              <span>Ir para {currentOrg.name}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
+            >
+              Encerrar Sessão
+            </button>
+          </div>
+        </div>
       );
     }
 
@@ -165,20 +280,17 @@ export default function App() {
     // Match /app/:slug (Dashboard)
     const dashboardMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)$/);
     if (dashboardMatch) {
-      const tenantSlug = dashboardMatch[1];
-      const org = ORGANIZATIONS[tenantSlug] || currentOrg;
-
       return (
         <AppShell
           currentPath={currentPath}
           onNavigate={navigate}
-          organization={org}
+          organization={currentOrg}
           user={session.user}
           onLogout={handleLogout}
           onSwitchTenant={handleSwitchTenant}
         >
           <DashboardView
-            organization={org}
+            organization={currentOrg}
             onNavigate={navigate}
           />
         </AppShell>
