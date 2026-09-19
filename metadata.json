@@ -1,0 +1,6 @@
+{
+  "name": "VIPAZ Jurídico",
+  "description": "Plataforma de produção jurídica de alta performance com IA contextual e arquitetura multi-tenant para escritórios de advocacia e gestão pública.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
