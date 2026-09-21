@@ -1,15 +1,18 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  FilePlus2,
   FolderArchive,
-  History,
-  UserCheck,
+  BookOpen,
+  BarChart3,
+  Wrench,
+  Plus,
   LogOut,
   Building2,
   ChevronRight,
-  ShieldAlert,
-  Sparkles,
+  ShieldCheck,
+  Scale,
+  PanelLeftClose,
+  PanelLeft,
   ExternalLink,
 } from 'lucide-react';
 import { Organization, Profile } from '../types';
@@ -23,6 +26,8 @@ interface SidebarProps {
   onOpenTenantSwitcher: () => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,30 +39,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenTenantSwitcher,
   isOpenMobile,
   onCloseMobile,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const tenantSlug = organization.slug;
 
-  const navItems = [
+  const globalNavItems = [
     {
-      label: 'Visão Geral',
+      label: 'Início',
       path: `/app/${tenantSlug}`,
-      icon: <LayoutDashboard className="w-4 h-4" />,
+      icon: <LayoutDashboard className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p === `/app/${tenantSlug}`,
     },
     {
-      label: 'Nova Peça',
-      path: `/app/${tenantSlug}/nova-peca`,
-      icon: <FilePlus2 className="w-4 h-4" />,
-      highlight: true,
+      label: 'Casos',
+      path: `/app/${tenantSlug}/casos`,
+      icon: <Scale className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p.includes('/casos') || p.includes('/caso/'),
     },
     {
-      label: 'Documentos',
+      label: 'Peças & Autos',
       path: `/app/${tenantSlug}/documentos`,
-      icon: <FolderArchive className="w-4 h-4" />,
+      icon: <FolderArchive className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p.includes('/documentos'),
     },
     {
-      label: 'Histórico',
-      path: `/app/${tenantSlug}/documentos`,
-      icon: <History className="w-4 h-4" />,
+      label: 'Biblioteca',
+      path: `/app/${tenantSlug}/biblioteca`,
+      icon: <BookOpen className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p.includes('/biblioteca'),
+    },
+    {
+      label: 'Indicadores',
+      path: `/app/${tenantSlug}/indicadores`,
+      icon: <BarChart3 className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p.includes('/indicadores'),
+    },
+  ];
+
+  const adminNavItems = [
+    {
+      label: 'Administração',
+      path: `/app/${tenantSlug}/admin`,
+      icon: <Wrench className="w-4 h-4 shrink-0" />,
+      matches: (p: string) => p.includes('/admin'),
     },
   ];
 
@@ -68,133 +93,204 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Backdrop for mobile */}
+      {/* Backdrop para mobile */}
       {isOpenMobile && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-[#090F1D] border-r border-slate-800/90 flex flex-col justify-between transition-transform duration-200 ${
+        className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-white dark:bg-[#090F1E] border-r border-slate-200 dark:border-slate-800/90 flex flex-col justify-between transition-all duration-200 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        } ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Top Section / Brand */}
         <div className="flex flex-col">
-          <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
             <button
-              onClick={() => onNavigate('/')}
-              className="group text-left flex flex-col focus:outline-none"
+              onClick={() => handleNav(`/app/${tenantSlug}`)}
+              className="text-left flex items-center gap-2.5 focus:outline-none overflow-hidden"
+              title="VIPAZ Jurídico"
             >
-              <div className="flex items-center gap-2">
-                <span className="font-editorial text-xl font-bold tracking-tight text-white group-hover:text-cyan-400 transition">
-                  VIPAZ
-                </span>
-                <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400 font-sans border-l border-slate-700 pl-2">
-                  Jurídico
-                </span>
+              <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-bold text-sm font-editorial shrink-0">
+                V
               </div>
-              <span className="text-[10px] text-slate-500 font-mono-tech mt-0.5">
-                Alta Performance B2B
-              </span>
+              {!isCollapsed && (
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-editorial text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                      VIPAZ
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-cyan-600 dark:text-cyan-400">
+                      Jurídico
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono-tech">
+                    LegalTech Enterprise
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              >
+                {isCollapsed ? (
+                  <PanelLeft className="w-4 h-4" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4" />
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Botão Nova Peça / Novo Caso */}
+          <div className="p-3">
+            <button
+              onClick={() => handleNav(`/app/${tenantSlug}/nova-peca`)}
+              className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold uppercase tracking-wider transition shadow-sm ${
+                isCollapsed ? 'px-2' : 'px-3'
+              }`}
+              title="Nova Peça / Caso"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span>Nova Peça</span>}
             </button>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navegação Global */}
           <nav className="p-3 space-y-1">
-            {navItems.map((item, index) => {
-              const isActive =
-                currentPath === item.path ||
-                (item.label === 'Visão Geral' && currentPath === `/app/${tenantSlug}`) ||
-                (item.label === 'Documentos' && currentPath.includes('/documentos'));
+            {!isCollapsed && (
+              <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                Workspace
+              </div>
+            )}
+            {globalNavItems.map((item, index) => {
+              const isActive = item.matches(currentPath);
 
               return (
                 <button
                   key={index}
                   onClick={() => handleNav(item.path)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`w-full flex items-center ${
+                    isCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+                  } py-2 rounded-xl text-xs font-medium transition ${
                     isActive
-                      ? 'bg-cyan-950/50 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 font-semibold border border-slate-200 dark:border-slate-700/60'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
+                  title={item.label}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={isActive ? 'text-cyan-400' : 'text-slate-400'}>
+                  <div className="flex items-center gap-2.5">
+                    <span className={isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}>
                       {item.icon}
                     </span>
-                    <span>{item.label}</span>
+                    {!isCollapsed && <span>{item.label}</span>}
                   </div>
-
-                  {item.highlight && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  {!isCollapsed && isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
                   )}
+                </button>
+              );
+            })}
+
+            {/* Divisor */}
+            <div className="pt-2 pb-1">
+              <div className="border-t border-slate-200 dark:border-slate-800/80" />
+            </div>
+
+            {!isCollapsed && (
+              <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                Governança
+              </div>
+            )}
+
+            {adminNavItems.map((item, index) => {
+              const isActive = item.matches(currentPath);
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleNav(item.path)}
+                  className={`w-full flex items-center ${
+                    isCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+                  } py-2 rounded-xl text-xs font-medium transition ${
+                    isActive
+                      ? 'bg-slate-100 dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 font-semibold border border-slate-200 dark:border-slate-700/60'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                  }`}
+                  title={item.label}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}>
+                      {item.icon}
+                    </span>
+                    {!isCollapsed && <span>{item.label}</span>}
+                  </div>
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Bottom Section / Tenant & Profile */}
-        <div className="p-3 border-t border-slate-800/90 space-y-2">
-          {/* Tenant Switcher Button */}
-          <div
+        {/* Bottom Section / Tenant & User */}
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
+          {/* Tenant Switcher */}
+          <button
             onClick={onOpenTenantSwitcher}
-            className="cursor-pointer p-2.5 rounded-lg bg-slate-900/80 hover:bg-slate-850 border border-slate-800 transition flex items-center justify-between group"
+            className={`w-full flex items-center ${
+              isCollapsed ? 'justify-center p-2' : 'justify-between p-2.5'
+            } rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left`}
+            title={`Organização: ${organization.name}`}
           >
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-7 h-7 rounded bg-cyan-950 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                <Building2 className="w-3.5 h-3.5" />
-              </div>
-              <div className="overflow-hidden">
-                <div className="text-xs font-semibold text-slate-200 truncate group-hover:text-cyan-300 transition">
-                  {organization.name}
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Building2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              {!isCollapsed && (
+                <div className="overflow-hidden">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                    {organization.name}
+                  </div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono-tech">
+                    <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                    <span>Tenant Isolado</span>
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono-tech flex items-center gap-1">
-                  <span>/app/{organization.slug}</span>
-                </div>
-              </div>
+              )}
             </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
-          </div>
+            {!isCollapsed && <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+          </button>
 
-          {/* User Profile Card */}
-          <div className="p-2.5 rounded-lg bg-slate-900/40 border border-slate-800/60 space-y-2">
-            <div className="flex items-center justify-between">
+          {/* User Profile & Logout */}
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} pt-1 px-1`}>
+            {!isCollapsed && (
               <div className="flex items-center gap-2 overflow-hidden">
-                <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
-                  {user?.full_name?.charAt(0) || 'U'}
+                <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                  {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'A'}
                 </div>
                 <div className="overflow-hidden">
-                  <div className="text-xs font-medium text-slate-200 truncate">
-                    {user?.full_name || 'Usuário'}
+                  <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                    {user?.full_name || 'Dr. José Antônio'}
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {user?.oab || (user?.role === 'admin' ? 'Administrador' : user?.role === 'senior_lawyer' ? 'Advogado Sênior' : user?.role === 'reviewer' ? 'Revisor' : 'Advogado')}
+                  <div className="text-[10px] text-slate-400 truncate">
+                    {user?.oab || 'OAB/RJ 114.760'}
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
-              <button
-                onClick={() => onNavigate('/')}
-                className="text-slate-400 hover:text-slate-200 transition flex items-center gap-1"
-                title="Página Pública"
-              >
-                <span>Site Público</span>
-                <ExternalLink className="w-2.5 h-2.5" />
-              </button>
-
-              <button
-                onClick={onLogout}
-                className="text-rose-400 hover:text-rose-300 transition flex items-center gap-1 font-medium"
-              >
-                <LogOut className="w-3 h-3" />
-                <span>Sair</span>
-              </button>
-            </div>
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              title="Encerrar sessão"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>

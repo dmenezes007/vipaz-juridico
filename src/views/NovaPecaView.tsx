@@ -1,73 +1,268 @@
-import React, { useState } from 'react';
+/**
+ * VIPAZ Jurídico — Vista: Nova Peça Processual
+ * Motor Determinístico de Montagem Jurídica (Contestação Reajuste PME)
+ */
+
+import React, { useState, useMemo } from 'react';
 import {
-  ShieldCheck,
   Building2,
   ArrowRight,
   AlertCircle,
   Sparkles,
   Info,
   Loader2,
+  Layers,
+  Scale,
+  CheckCircle2,
+  FileCheck,
+  ShieldAlert,
+  Database,
+  Copy,
+  Check,
+  FileDown,
+  Download,
+  FileText,
+  RefreshCw,
+  ExternalLink,
+  Workflow,
+  HardDrive,
 } from 'lucide-react';
 import { Organization, DocumentType } from '../types';
-import { SubjectMultiSelect, SelectedSubjectItem } from '../components/SubjectMultiSelect';
+import {
+  LegalFormData,
+  UfType,
+  AdversePartyNature,
+  DocumentPieceType,
+} from '../domain/legal-engine/types';
+import { ruleEngine } from '../domain/legal-engine/ruleEngine';
+import { deterministicGenerationService } from '../services/deterministicGenerationService';
+import {
+  experimentalDocxService,
+  ExperimentalDocxGenerationResult,
+  OFFICIAL_HOMOLOGATED_INPUT_ID,
+  OFFICIAL_HOMOLOGATED_JOB_ID,
+} from '../services/experimentalDocxService';
+import {
+  docxGenerationService,
+  CawDocxGenerationStep,
+  CawDocxGenerationResult,
+} from '../services/docxGenerationService';
+import { MapaDaPecaModal } from '../components/MapaDaPecaModal';
 import { PdfUploader, SelectedPdfFile } from '../components/PdfUploader';
-import { generationService } from '../services/generationService';
+import {
+  DOCUMENT_PIECES_CATALOG,
+  DISPUTE_TAXONOMY_ITEMS,
+  HOMOLOGATED_CASE_DEFAULTS,
+} from '../domain/legal-engine/formDefinitions';
+import { isPieceHomologated } from '../domain/legal-engine/architectureRegistry';
 
 interface NovaPecaViewProps {
   organization: Organization;
   onNavigate: (path: string) => void;
 }
 
-const COURTS = [
-  'TJSP - Tribunal de Justiça de São Paulo',
-  'TJRJ - Tribunal de Justiça do Rio de Janeiro',
-  'TJMG - Tribunal de Justiça de Minas Gerais',
-  'TJRS - Tribunal de Justiça do Rio Grande do Sul',
-  'TRF-3 - Tribunal Regional Federal da 3ª Região',
-  'TRF-2 - Tribunal Regional Federal da 2ª Região',
-  'TRF-1 - Tribunal Regional Federal da 1ª Região',
-  'STJ - Superior Tribunal de Justiça',
-];
-
 export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
   organization,
   onNavigate,
 }) => {
-  const [processNumber, setProcessNumber] = useState('');
-  const [court, setCourt] = useState(COURTS[0]);
-  const [representedParty, setRepresentedParty] = useState(
-    organization.slug === 'caw' ? 'SulAmérica Companhia de Seguro Saúde' : ''
-  );
-  const [documentType, setDocumentType] = useState<DocumentType>('Contestação');
-  const [subjects, setSubjects] = useState<SelectedSubjectItem[]>([
-    { subject: 'Reajuste Plano PME', custom_subject: null },
-  ]);
-  const [specialInstructions, setSpecialInstructions] = useState('');
-  const [selectedFile, setSelectedFile] = useState<SelectedPdfFile | null>(null);
+  // Estado do formulário jurídico determinístico
+  const [formData, setFormData] = useState<LegalFormData>({
+    process_number: '',
+    court_number: '',
+    court_type: 'Vara Cível',
+    court_regional: '',
+    district: '',
+    uf: 'RJ',
+    client: organization.slug === 'caw' ? 'Sul América Companhia de Seguro Saúde' : '',
+    opposing_party: '',
+    executive_summary: '',
+    claim_summary: '',
+    controversy_delimitation: '',
+    adverse_party_nature: ['pj', 'pf'],
+    document_piece: 'Contestação',
+    dispute_objects: {
+      reajuste_anual: true,
+      reajuste_anual_modalidade: 'pme',
+      reajuste_etario: false,
+      reajuste_etario_modalidade: 'pme',
+      aviso_previo: false,
+      premio_complementar: false,
+      outro: false,
+      outro_descricao: '',
+    },
+    injunction_status: 'denied',
+    moral_damages_status: 'claimed',
+    legal_aid_status: 'challenge',
+    legal_aid_target: 'both',
+    standing_challenge_status: 'challenge',
+    claim_value_challenge_status: 'challenge',
+    petition_aptitude_status: 'do_not_challenge',
+    prescription_triennial_status: 'argue',
+    prescription_decennial_status: 'do_not_argue',
+    repetition_status: 'double',
+  });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedFile, setSelectedFile] = useState<SelectedPdfFile | null>(null);
+  const [isMapaModalOpen, setIsMapaModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string>('');
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
+  const [persistedSnapshot, setPersistedSnapshot] = useState<{
+    generation_job_id: string;
+    legal_case_input_id: string;
+    included_blocks_count: number;
+    linked_requests_count: number;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Helper de preenchimento rápido para avaliação ágil com PDF real válido
-  const fillQuickCase = () => {
-    setProcessNumber('5029144-67.2024.8.26.0100');
-    setCourt('TJSP - Tribunal de Justiça de São Paulo');
-    setRepresentedParty('SulAmérica Companhia de Seguro Saúde');
-    setDocumentType('Contestação');
-    setSubjects([
-      { subject: 'Reajuste Plano PME', custom_subject: null },
-      { subject: 'Aviso Prévio', custom_subject: null },
-    ]);
-    setSpecialInstructions(
-      'Enfatizar o Tema Repetitivo 1.065 do STJ quanto à licitude do aviso prévio de 60 dias e a higidez atuarial do contrato coletivo PME.'
-    );
+  // Estados da Fase 4: Geração Experimental do DOCX Determinístico
+  const [isGeneratingDocx, setIsGeneratingDocx] = useState(false);
+  const [docxResult, setDocxResult] = useState<ExperimentalDocxGenerationResult | null>(null);
+  const [docxError, setDocxError] = useState<string | null>(null);
 
-    // Cria um arquivo PDF binário legítimo mínimo para teste de upload
+  // Estados da Fase 5: Integração Nativa VIPAZ -> Motor DOCX CAW (n8n / Carbone)
+  const [isGeneratingCawDocx, setIsGeneratingCawDocx] = useState(false);
+  const [cawDocxStep, setCawDocxStep] = useState<CawDocxGenerationStep>('idle');
+  const [cawDocxStepMessage, setCawDocxStepMessage] = useState<string>('');
+  const [cawDocxResult, setCawDocxResult] = useState<CawDocxGenerationResult | null>(null);
+  const [cawDocxError, setCawDocxError] = useState<string | null>(null);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleGenerateCawDocx = async (targetJobId?: string) => {
+    const jobId = targetJobId || persistedSnapshot?.generation_job_id;
+    if (!jobId || isGeneratingCawDocx) return;
+
+    setIsGeneratingCawDocx(true);
+    setCawDocxError(null);
+    setCawDocxResult(null);
+    setCawDocxStep('assembling_payload');
+    setCawDocxStepMessage('Iniciando montagem determinística para o motor CAW...');
+
+    try {
+      const result = await docxGenerationService.generateDocx(
+        jobId,
+        (step, msg) => {
+          setCawDocxStep(step);
+          setCawDocxStepMessage(msg);
+        }
+      );
+      setCawDocxResult(result);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Falha na integração com o motor DOCX CAW (n8n).';
+      console.error('Erro na geração DOCX CAW:', err);
+      setCawDocxError(msg);
+      setCawDocxStep('error');
+    } finally {
+      setIsGeneratingCawDocx(false);
+    }
+  };
+
+  const handleDownloadCawDocx = async () => {
+    if (!cawDocxResult) return;
+    try {
+      await docxGenerationService.downloadDocx({
+        signed_url: cawDocxResult.signed_url,
+        docx_storage_path: cawDocxResult.docx_storage_path,
+        filename: cawDocxResult.filename,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao baixar DOCX.';
+      alert(msg);
+    }
+  };
+
+  const handleGenerateExperimentalDocx = async (inputId?: string) => {
+    const targetId = inputId || persistedSnapshot?.legal_case_input_id;
+    if (!targetId || isGeneratingDocx) return;
+
+    setIsGeneratingDocx(true);
+    setDocxError(null);
+    setDocxResult(null);
+
+    try {
+      const result = await experimentalDocxService.generateDocx(targetId);
+      setDocxResult(result);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Falha na renderização do arquivo DOCX.';
+      console.error('Erro na geração experimental de DOCX:', err);
+      setDocxError(msg);
+    } finally {
+      setIsGeneratingDocx(false);
+    }
+  };
+
+  const handleGeneratePhase41Docx = async (inputId?: string) => {
+    const targetId = inputId || persistedSnapshot?.legal_case_input_id;
+    if (isGeneratingDocx) return;
+
+    setIsGeneratingDocx(true);
+    setDocxError(null);
+    setDocxResult(null);
+
+    try {
+      const result = await experimentalDocxService.generatePhase41Docx(targetId || OFFICIAL_HOMOLOGATED_INPUT_ID);
+      setDocxResult(result);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Falha na renderização do arquivo DOCX da Fase 4.1.';
+      console.error('Erro na geração Fase 4.1 de DOCX:', err);
+      setDocxError(msg);
+    } finally {
+      setIsGeneratingDocx(false);
+    }
+  };
+
+  const handleDownloadGeneratedDocx = () => {
+    if (!docxResult) return;
+    experimentalDocxService.downloadDocxFile(docxResult.blob, docxResult.filename);
+  };
+
+  const handleLoadOfficialSnapshot = () => {
+    setPersistedSnapshot({
+      generation_job_id: OFFICIAL_HOMOLOGATED_JOB_ID,
+      legal_case_input_id: OFFICIAL_HOMOLOGATED_INPUT_ID,
+      included_blocks_count: 28,
+      linked_requests_count: 14,
+    });
+    setDocxResult(null);
+    setDocxError(null);
+    setCawDocxResult(null);
+    setCawDocxError(null);
+    setCawDocxStep('idle');
+  };
+
+  // Avaliação em tempo real pelo motor de regras
+  const evaluation = useMemo(() => {
+    return ruleEngine.preview(formData);
+  }, [formData]);
+
+  const activeBlocksCount = evaluation.evaluations.filter((e) => e.included).length;
+
+  const isCurrentPieceHomologated = isPieceHomologated(formData.document_piece);
+
+  // Preenchimento do caso de homologação PME
+  const handleQuickFill = () => {
+    setFormData({
+      ...HOMOLOGATED_CASE_DEFAULTS,
+    });
+
     const samplePdfContent =
       '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF\n';
     const sampleBlob = new Blob([samplePdfContent], { type: 'application/pdf' });
-    const quickFile = new File([sampleBlob], 'Autos_Processo_5029144_SulAmerica.pdf', {
+    const quickFile = new File([sampleBlob], 'Autos_0802491_SulAmerica.pdf', {
       type: 'application/pdf',
     });
 
@@ -77,157 +272,704 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
       fileObj: quickFile,
     });
 
-    setErrors({});
+    setClientErrors({});
+  };
+
+  const updateField = <K extends keyof LegalFormData>(field: K, val: LegalFormData[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: val }));
+    setClientErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[field as string];
+      return copy;
+    });
+  };
+
+  const toggleAdversePartyNature = (type: AdversePartyNature) => {
+    const current = formData.adverse_party_nature;
+    let next: AdversePartyNature[];
+    if (current.includes(type)) {
+      next = current.filter((t) => t !== type);
+    } else {
+      next = [...current, type];
+    }
+    updateField('adverse_party_nature', next);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    const newErrors: Record<string, string> = {};
-
-    if (!processNumber.trim()) {
-      newErrors.processNumber = 'Informe o número do processo judicial (CNJ).';
-    }
-    if (!representedParty.trim()) {
-      newErrors.representedParty = 'Informe a parte representada.';
-    }
-    if (subjects.length === 0) {
-      newErrors.subjects = 'Selecione ao menos uma matéria pertinente ao caso.';
-    }
-
-    // Validação específica para "Outro"
-    const outroItem = subjects.find((s) => s.subject === 'Outro');
-    if (outroItem && (!outroItem.custom_subject || !outroItem.custom_subject.trim())) {
-      newErrors.subjects = 'Por favor, preencha a descrição da matéria específica selecionada em "Outro".';
-    }
-
-    if (!selectedFile || !selectedFile.fileObj) {
-      newErrors.file = 'É obrigatório anexar o processo integral em formato PDF.';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    // Validação formal
+    const check = ruleEngine.evaluate(formData);
+    if (!check.isValid) {
+      const errMap: Record<string, string> = {};
+      check.errors.forEach((err) => {
+        errMap[err.field] = err.message;
+      });
+      setClientErrors(errMap);
+      setIsMapaModalOpen(true);
       return;
     }
 
     setIsSubmitting(true);
-    setProgressStatus('Iniciando registro da solicitação...');
+    setProgressStatus('Iniciando persistência do snapshot...');
+    setPersistedSnapshot(null);
 
     try {
-      const result = await generationService.createProcessAndJob({
-        process_number: processNumber.trim(),
-        court,
-        represented_party: representedParty.trim(),
-        document_type: documentType,
-        subjects,
-        special_instructions: specialInstructions.trim() || null,
-        file: selectedFile!.fileObj,
-        onProgressState: (status) => setProgressStatus(status),
-      });
+      const result = await deterministicGenerationService.saveDeterministicSnapshot(
+        {
+          ...formData,
+          source_file: selectedFile?.fileObj,
+        },
+        (statusText) => {
+          setProgressStatus(statusText);
+        }
+      );
 
-      // Redireciona para tela de acompanhamento real
-      onNavigate(`/app/${organization.slug}/geracoes/${result.job_id}`);
+      setPersistedSnapshot({
+        generation_job_id: result.generation_job_id,
+        legal_case_input_id: result.legal_case_input_id,
+        included_blocks_count: result.included_blocks_count,
+        linked_requests_count: result.linked_requests_count,
+      });
+      setIsSubmitting(false);
+      setProgressStatus('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: unknown) {
-      console.error('Erro na submissão de Nova Peça:', err);
-      const msg = err instanceof Error ? err.message : 'Erro ao registrar solicitação. Tente novamente.';
-      setErrors({ submit: msg });
+      console.error('Erro ao salvar snapshot jurídico:', err);
+      const msg = err instanceof Error ? err.message : 'Erro ao processar a persistência do snapshot.';
+      setClientErrors({ submit: msg });
       setIsSubmitting(false);
       setProgressStatus('');
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono-tech uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono uppercase tracking-wider mb-1">
             <Building2 className="w-3.5 h-3.5" />
             <span>{organization.name}</span>
             <span className="text-slate-600">•</span>
-            <span>MÓDULO DE PRODUÇÃO FORENSE</span>
+            <span>MOTOR DETERMINÍSTICO DE MONTAGEM JURÍDICA</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
-            Nova Peça Processual
+            NOVA PEÇA JURÍDICA
           </h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Forneça as diretrizes da causa para persistência do processo e estruturação do pipeline.
+            Motor Determinístico de Montagem Jurídica: seleção de peças, teses fático-regulatórias, regras forenses e persistência de snapshot no Supabase.
           </p>
         </div>
 
-        {/* Quick Fill Button */}
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={fillQuickCase}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs font-medium border border-cyan-500/30 transition shadow-sm disabled:opacity-50"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Preencher Exemplo (Caso SulAmérica)</span>
-        </button>
+        {/* Quick Actions */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLoadOfficialSnapshot}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition shadow-sm"
+            title="Carregar o snapshot homologado oficial (454b44b2-360e-4866-adff-eee6173aeec5)"
+          >
+            <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Snapshot Homologado ({OFFICIAL_HOMOLOGATED_INPUT_ID.slice(0, 8)}...)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleQuickFill}
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs font-medium border border-cyan-500/30 transition shadow-sm disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Preencher Caso Homologado</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsMapaModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Mapa da Peça ({activeBlocksCount})</span>
+          </button>
+        </div>
       </div>
 
+      {/* Confirmação Discreta de Snapshot Persistido (Fase 3) */}
+      {persistedSnapshot && (
+        <div
+          id="persisted-snapshot-confirmation"
+          className="p-5 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-slate-100 shadow-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                  <span>Snapshot Jurídico Persistido com Sucesso</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
+                    FASE 3 — PERSISTIDO
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Registro consolidado na tabela <code className="text-cyan-300 font-mono">public.legal_case_inputs</code> sem geração de DOCX, chamadas de IA ou webhooks.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPersistedSnapshot(null);
+                setDocxResult(null);
+                setDocxError(null);
+              }}
+              className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 transition"
+            >
+              Fechar
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
+                generation_job_id
+              </span>
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className="text-xs font-mono text-cyan-300 truncate select-all"
+                  title={persistedSnapshot.generation_job_id}
+                >
+                  {persistedSnapshot.generation_job_id}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(persistedSnapshot.generation_job_id, 'job')}
+                  className="text-slate-400 hover:text-white p-1 shrink-0"
+                  title="Copiar Job ID"
+                >
+                  {copiedField === 'job' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
+                legal_case_input_id
+              </span>
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className="text-xs font-mono text-cyan-300 truncate select-all"
+                  title={persistedSnapshot.legal_case_input_id}
+                >
+                  {persistedSnapshot.legal_case_input_id}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(persistedSnapshot.legal_case_input_id, 'input')}
+                  className="text-slate-400 hover:text-white p-1 shrink-0"
+                  title="Copiar Input ID"
+                >
+                  {copiedField === 'input' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
+                Blocos Incluídos
+              </span>
+              <span className="text-base font-bold text-white font-mono">
+                {persistedSnapshot.included_blocks_count}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
+                Pedidos Vinculados
+              </span>
+              <span className="text-base font-bold text-white font-mono">
+                {persistedSnapshot.linked_requests_count}
+              </span>
+            </div>
+          </div>
+
+          {/* Seção de Geração Experimental de DOCX (Fase 4) */}
+          <div className="pt-4 border-t border-cyan-500/20 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-cyan-200">
+                  <FileText className="w-4 h-4 text-cyan-400" />
+                  <span>PROVA EXPERIMENTAL: GERAÇÃO DO PRIMEIRO DOCX DETERMINÍSTICO</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Monta e renderiza o arquivo DOCX real a partir do snapshot persistido, sem IA e sem webhooks.
+                </p>
+              </div>
+
+              {!docxResult && (
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    id="btn-generate-phase41-docx"
+                    onClick={() => handleGeneratePhase41Docx(persistedSnapshot.legal_case_input_id)}
+                    disabled={isGeneratingDocx}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {isGeneratingDocx ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                        <span>Renderizando DOCX...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileDown className="w-4 h-4 text-slate-950" />
+                        <span>GERAR DOCX FASE 4.1 (28 BLOCOS)</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-generate-experimental-docx"
+                    onClick={() => handleGenerateExperimentalDocx(persistedSnapshot.legal_case_input_id)}
+                    disabled={isGeneratingDocx}
+                    className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span>DOCX FASE 4 (27 BLOCOS)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Captura e exibição de erro sem falso sucesso */}
+            {docxError && (
+              <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold block text-rose-300">Falha ao gerar o DOCX:</span>
+                  <span className="text-rose-200/90">{docxError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Resultado da geração DOCX */}
+            {docxResult && (
+              <div
+                id="experimental-docx-result"
+                className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 space-y-3 animate-in fade-in duration-200"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white font-mono">
+                          {docxResult.filename}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-400/10 text-emerald-300 border border-emerald-400/20">
+                          DOCX VÁLIDO ({docxResult.fileSizeFormatted})
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Documento gerado com {docxResult.includedBlocksCount} blocos e {docxResult.linkedRequestsCount} pedidos vinculados.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-download-docx"
+                      onClick={handleDownloadGeneratedDocx}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
+                    >
+                      <Download className="w-4 h-4 text-slate-950" />
+                      <span>DOWNLOAD DOCX</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateExperimentalDocx(persistedSnapshot.legal_case_input_id)}
+                      disabled={isGeneratingDocx}
+                      title="Gerar novamente"
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingDocx ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {docxResult.unhomologatedBlocks.length > 0 && (
+                  <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
+                    <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      {docxResult.unhomologatedBlocks.length} bloco(s) não homologado(s) receberam marcador visual: {docxResult.unhomologatedBlocks.join(', ')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Seção da Fase 5: Integração Nativa VIPAZ -> Motor DOCX CAW (n8n / Carbone) */}
+          <div className="pt-4 border-t border-indigo-500/30 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+                  <Workflow className="w-4 h-4 text-indigo-400" />
+                  <span>FASE 5 — INTEGRAÇÃO NATIVA: MOTOR DOCX CAW (n8n / CARBONE)</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-200 border border-indigo-500/30">
+                    Homologado
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Converte a saída do AssemblyEngine em payload documental, aciona o webhook do n8n, processa o template Carbone e confirma gravação no Supabase Storage.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  id="btn-generate-caw-docx"
+                  onClick={() => handleGenerateCawDocx(persistedSnapshot.generation_job_id)}
+                  disabled={isGeneratingCawDocx}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isGeneratingCawDocx ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>{cawDocxStepMessage || 'Processando no motor CAW...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <HardDrive className="w-4 h-4 text-slate-950" />
+                      <span>GERAR DOCX OFICIAL CAW (n8n)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Pipeline de 7 Estados Progressivos */}
+            {(isGeneratingCawDocx || cawDocxStep !== 'idle') && (
+              <div className="p-3.5 rounded-xl bg-slate-900/90 border border-indigo-500/20 space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-300">Status do Fluxo de Produção:</span>
+                  <span className="font-mono text-indigo-300">{cawDocxStepMessage}</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5 text-[10px]">
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'assembling_payload'
+                      ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 font-bold'
+                      : ['sending_to_n8n', 'processing_carbone', 'saving_to_storage', 'confirming_document', 'completed'].includes(cawDocxStep)
+                      ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    1. Payload
+                  </div>
+
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'sending_to_n8n'
+                      ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 font-bold'
+                      : ['processing_carbone', 'saving_to_storage', 'confirming_document', 'completed'].includes(cawDocxStep)
+                      ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    2. Webhook n8n
+                  </div>
+
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'processing_carbone'
+                      ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 font-bold'
+                      : ['saving_to_storage', 'confirming_document', 'completed'].includes(cawDocxStep)
+                      ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    3. Carbone DOCX
+                  </div>
+
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'saving_to_storage'
+                      ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 font-bold'
+                      : ['confirming_document', 'completed'].includes(cawDocxStep)
+                      ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    4. Storage
+                  </div>
+
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'confirming_document'
+                      ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40 font-bold'
+                      : cawDocxStep === 'completed'
+                      ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    5. Registro
+                  </div>
+
+                  <div className={`p-2 rounded-lg text-center transition ${
+                    cawDocxStep === 'completed'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                      : cawDocxStep === 'error'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
+                      : 'bg-slate-800/40 text-slate-500'
+                  }`}>
+                    {cawDocxStep === 'error' ? 'Falha' : '6. Sucesso'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alerta de Erro Sem Falso Positivo */}
+            {cawDocxError && (
+              <div
+                id="caw-docx-error"
+                className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in duration-200"
+              >
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold block text-rose-300">Falha na integração com o motor CAW:</span>
+                  <span className="text-rose-200/90">{cawDocxError}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Resultado Final da Geração DOCX CAW */}
+            {cawDocxResult && (
+              <div
+                id="caw-docx-result"
+                className="p-4 rounded-xl bg-slate-900/90 border border-indigo-500/40 space-y-3 animate-in fade-in duration-200"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-indigo-300" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-white font-mono">
+                          {cawDocxResult.filename}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-400/10 text-indigo-300 border border-indigo-400/20">
+                          MOTOR CAW / CARBONE DOCX HOMOLOGADO
+                        </span>
+                        {cawDocxResult.duration_ms && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ({(cawDocxResult.duration_ms / 1000).toFixed(1)}s)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Documento gerado com {cawDocxResult.included_blocks_count} blocos e {cawDocxResult.linked_requests_count} pedidos vinculados.
+                        {cawDocxResult.docx_storage_path && (
+                          <span className="block font-mono text-[10px] text-slate-500 mt-0.5">
+                            Caminho: {cawDocxResult.docx_storage_path}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-download-caw-docx"
+                      onClick={handleDownloadCawDocx}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold text-xs transition shadow-md shadow-indigo-500/20 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 text-slate-950" />
+                      <span>DOWNLOAD DOCX CAW</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(`/app/${organization.slug}/geracao/${cawDocxResult.job_id}`)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs border border-slate-700 transition cursor-pointer"
+                    >
+                      <span>Acompanhar Job</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-8">
-        {errors.submit && (
-          <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2.5">
+        {clientErrors.submit && (
+          <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-3">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{errors.submit}</span>
+            <span>{clientErrors.submit}</span>
           </div>
         )}
 
-        {/* SECTION 1: DADOS PROCESSUAIS BÁSICOS */}
-        <div className="p-6 rounded-xl bg-[#0B1325] border border-slate-800 space-y-5">
+        {/* SEÇÃO 01: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono-tech text-[10px]">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
                 01
               </span>
-              <span>Identificação do Processo & Juízo</span>
+              <span>Identificação do Processo & Juízo Competente</span>
             </h3>
-            <span className="text-[11px] text-slate-500 font-mono-tech">Campos Obrigatórios</span>
+            <span className="text-[11px] text-slate-500 font-mono">Regras de Endereçamento</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* NÚMERO DO PROCESSO */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <label className="block text-xs font-medium text-slate-300">
-                NÚMERO DO PROCESSO <span className="text-cyan-400">*</span>
+                NÚMERO DO PROCESSO (CNJ) <span className="text-cyan-400">*</span>
               </label>
               <input
                 type="text"
                 disabled={isSubmitting}
-                value={processNumber}
-                onChange={(e) => setProcessNumber(e.target.value)}
-                placeholder="Ex: 5014382-19.2024.8.26.0100"
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 font-mono-tech focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                value={formData.process_number}
+                onChange={(e) => updateField('process_number', e.target.value)}
+                placeholder="Ex: 0802491-32.2024.8.19.0001"
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
               />
-              {errors.processNumber && (
-                <p className="text-[11px] text-rose-400">{errors.processNumber}</p>
+              {clientErrors.process_number && (
+                <p className="text-[11px] text-rose-400">{clientErrors.process_number}</p>
               )}
             </div>
 
-            {/* TRIBUNAL */}
+            {/* UNIDADE FEDERATIVA (UF) */}
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-slate-300">
-                TRIBUNAL / ÓRGÃO JULGADOR <span className="text-cyan-400">*</span>
+                ESTADO (UF) <span className="text-cyan-400">*</span>
               </label>
               <select
                 disabled={isSubmitting}
-                value={court}
-                onChange={(e) => setCourt(e.target.value)}
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                value={formData.uf}
+                onChange={(e) => updateField('uf', e.target.value as UfType)}
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 font-medium"
               >
-                {COURTS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                <option value="RJ">RJ — Rio de Janeiro</option>
+                <option value="SP">SP — São Paulo</option>
+                <option value="MG">MG — Minas Gerais</option>
+                <option value="BA">BA — Bahia</option>
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-1">
+            {/* TIPO DE JUÍZO */}
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-300">
+                JUÍZO COMPETENTE <span className="text-cyan-400">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => updateField('court_type', 'Vara Cível')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
+                    formData.court_type === 'Vara Cível'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Vara Cível (DA)
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => updateField('court_type', 'Juizado Especial Cível')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
+                    formData.court_type === 'Juizado Especial Cível'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Juizado Especial (DO)
+                </button>
+              </div>
+            </div>
+
+            {/* NÚMERO DA VARA */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">
+                Nº DA VARA / JUIZADO <span className="text-cyan-400">*</span>
+              </label>
+              <input
+                type="text"
+                disabled={isSubmitting}
+                value={formData.court_number}
+                onChange={(e) => updateField('court_number', e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="Ex: 2"
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.court_number && (
+                <p className="text-[11px] text-rose-400">{clientErrors.court_number}</p>
+              )}
+            </div>
+
+            {/* COMARCA */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-300">
+                COMARCA <span className="text-cyan-400">*</span>
+              </label>
+              <input
+                type="text"
+                disabled={isSubmitting}
+                value={formData.district}
+                onChange={(e) => updateField('district', e.target.value)}
+                placeholder="Ex: Capital"
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.district && (
+                <p className="text-[11px] text-rose-400">{clientErrors.district}</p>
+              )}
+            </div>
+          </div>
+
+          {/* REGIONAL (OPCIONAL) */}
+          <div className="pt-1">
+            <label className="block text-xs font-medium text-slate-400">
+              FORO REGIONAL / SUBSEÇÃO (SE HOUVER)
+            </label>
+            <input
+              type="text"
+              disabled={isSubmitting}
+              value={formData.court_regional || ''}
+              onChange={(e) => updateField('court_regional', e.target.value)}
+              placeholder="Ex: Barra da Tijuca, Santo Amaro, etc. (deixe em branco se for Foro Central)"
+              className="w-full mt-1 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+            />
+          </div>
+        </div>
+
+        {/* SEÇÃO 02: PARTES & NATUREZA */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                02
+              </span>
+              <span>Partes do Processo & Natureza Jurídica</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">Regras de Ilegitimidade</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* PARTE REPRESENTADA */}
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-slate-300">
@@ -236,122 +978,773 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               <input
                 type="text"
                 disabled={isSubmitting}
-                value={representedParty}
-                onChange={(e) => setRepresentedParty(e.target.value)}
-                placeholder="Ex: SulAmérica Companhia de Seguro Saúde"
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                value={formData.client}
+                onChange={(e) => updateField('client', e.target.value)}
+                placeholder="Ex: Sul América Companhia de Seguro Saúde"
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
               />
-              {errors.representedParty && (
-                <p className="text-[11px] text-rose-400">{errors.representedParty}</p>
+              {clientErrors.client && (
+                <p className="text-[11px] text-rose-400">{clientErrors.client}</p>
               )}
             </div>
 
-            {/* TIPO DE PEÇA */}
+            {/* PARTE ADVERSA */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-medium text-slate-300">
-                  TIPO DE PEÇA <span className="text-cyan-400">*</span>
-                </label>
-                <span className="text-[10px] text-cyan-400 font-mono-tech">
-                  Operacional
-                </span>
-              </div>
-              <select
+              <label className="block text-xs font-medium text-slate-300">
+                PARTE ADVERSA (AUTOR/EMPRESA) <span className="text-cyan-400">*</span>
+              </label>
+              <input
+                type="text"
                 disabled={isSubmitting}
-                value={documentType}
-                onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                value={formData.opposing_party}
+                onChange={(e) => updateField('opposing_party', e.target.value)}
+                placeholder="Ex: MG Métodos Gráficos Ltda. e outros"
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.opposing_party && (
+                <p className="text-[11px] text-rose-400">{clientErrors.opposing_party}</p>
+              )}
+            </div>
+          </div>
+
+          {/* NATUREZA DA PARTE ADVERSA */}
+          <div className="pt-2">
+            <label className="block text-xs font-medium text-slate-300 mb-2">
+              COMPOSIÇÃO DO POLO ATIVO ADVERSO <span className="text-cyan-400">*</span>
+            </label>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formData.adverse_party_nature.includes('pj')}
+                  onChange={() => toggleAdversePartyNature('pj')}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span>Pessoa Jurídica (Empresa / Estipulante)</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formData.adverse_party_nature.includes('pf')}
+                  onChange={() => toggleAdversePartyNature('pf')}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span>Pessoa Física (Sócio / Beneficiário)</span>
+              </label>
+            </div>
+            {clientErrors.adverse_party_nature && (
+              <p className="text-[11px] text-rose-400 mt-1">
+                {clientErrors.adverse_party_nature}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* SEÇÃO 03: TIPO DE PEÇA PROCESSUAL */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                03
+              </span>
+              <span>Tipo de Peça Processual</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">
+              {isCurrentPieceHomologated ? 'Homologada para Geração' : 'Em Desenvolvimento'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {DOCUMENT_PIECES_CATALOG.map((piece) => {
+              const isSelected = formData.document_piece === piece.id;
+              return (
+                <button
+                  key={piece.id}
+                  type="button"
+                  onClick={() => updateField('document_piece', piece.id)}
+                  className={`p-4 rounded-xl border text-left transition flex flex-col justify-between gap-2.5 ${
+                    isSelected
+                      ? 'bg-cyan-500/15 border-cyan-500/60 ring-1 ring-cyan-500/40'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-100">{piece.label}</span>
+                    <span
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
+                        piece.isHomologated
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}
+                    >
+                      {piece.isHomologated ? 'Homologada' : 'Em Dev'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">{piece.description}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {!isCurrentPieceHomologated && (
+            <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-200 flex items-start gap-3">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-300">
+                  Arquitetura ainda não homologada no MVP
+                </p>
+                <p className="text-[11px] text-amber-200/80 mt-0.5">
+                  A peça processual selecionada (<strong>{formData.document_piece}</strong>) está em fase de modelagem de regras.
+                  Para prosseguir com a montagem determinística e download do DOCX, selecione <strong>Contestação</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SEÇÃO 04: OBJETO DA LIDE (CLASSIFICAÇÃO ESTRUTURADA) */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                04
+              </span>
+              <span>Objeto da Lide (Classificação Estruturada)</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">Taxonomia Regulatória ANS</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* 1. Reajuste Anual */}
+            <div
+              className={`p-4 rounded-xl border transition ${
+                formData.dispute_objects.reajuste_anual
+                  ? 'bg-cyan-950/20 border-cyan-500/40'
+                  : 'bg-slate-900/60 border-slate-800'
+              }`}
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dispute_objects.reajuste_anual)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    updateField('dispute_objects', {
+                      ...formData.dispute_objects,
+                      reajuste_anual: checked,
+                      reajuste_anual_modalidade: formData.dispute_objects.reajuste_anual_modalidade || 'pme',
+                      reajuste_pme: checked && (formData.dispute_objects.reajuste_anual_modalidade || 'pme') === 'pme',
+                      reajuste_pme_anual: checked && (formData.dispute_objects.reajuste_anual_modalidade || 'pme') === 'pme',
+                    });
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs font-semibold text-slate-200">Reajuste Anual</span>
+              </label>
+
+              {formData.dispute_objects.reajuste_anual && (
+                <div className="mt-3 ml-7 flex items-center gap-4 pt-2 border-t border-slate-800/80">
+                  <span className="text-[11px] text-slate-400 font-medium">Modalidade:</span>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="reajuste_anual_modalidade"
+                      value="pme"
+                      checked={formData.dispute_objects.reajuste_anual_modalidade !== 'individual'}
+                      onChange={() => {
+                        updateField('dispute_objects', {
+                          ...formData.dispute_objects,
+                          reajuste_anual_modalidade: 'pme',
+                          reajuste_pme: true,
+                          reajuste_pme_anual: true,
+                        });
+                      }}
+                      className="text-cyan-500 focus:ring-cyan-400"
+                    />
+                    <span>PME</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="reajuste_anual_modalidade"
+                      value="individual"
+                      checked={formData.dispute_objects.reajuste_anual_modalidade === 'individual'}
+                      onChange={() => {
+                        updateField('dispute_objects', {
+                          ...formData.dispute_objects,
+                          reajuste_anual_modalidade: 'individual',
+                          reajuste_pme: false,
+                          reajuste_pme_anual: false,
+                        });
+                      }}
+                      className="text-cyan-500 focus:ring-cyan-400"
+                    />
+                    <span>Individual</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Reajuste Etário */}
+            <div
+              className={`p-4 rounded-xl border transition ${
+                formData.dispute_objects.reajuste_etario
+                  ? 'bg-cyan-950/20 border-cyan-500/40'
+                  : 'bg-slate-900/60 border-slate-800'
+              }`}
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dispute_objects.reajuste_etario)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    updateField('dispute_objects', {
+                      ...formData.dispute_objects,
+                      reajuste_etario: checked,
+                      reajuste_etario_modalidade: formData.dispute_objects.reajuste_etario_modalidade || 'pme',
+                      reajuste_pme_etario: checked && (formData.dispute_objects.reajuste_etario_modalidade || 'pme') === 'pme',
+                    });
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs font-semibold text-slate-200">Reajuste Etário</span>
+              </label>
+
+              {formData.dispute_objects.reajuste_etario && (
+                <div className="mt-3 ml-7 flex items-center gap-4 pt-2 border-t border-slate-800/80">
+                  <span className="text-[11px] text-slate-400 font-medium">Modalidade:</span>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="reajuste_etario_modalidade"
+                      value="pme"
+                      checked={formData.dispute_objects.reajuste_etario_modalidade !== 'individual'}
+                      onChange={() => {
+                        updateField('dispute_objects', {
+                          ...formData.dispute_objects,
+                          reajuste_etario_modalidade: 'pme',
+                          reajuste_pme_etario: true,
+                        });
+                      }}
+                      className="text-cyan-500 focus:ring-cyan-400"
+                    />
+                    <span>PME</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="reajuste_etario_modalidade"
+                      value="individual"
+                      checked={formData.dispute_objects.reajuste_etario_modalidade === 'individual'}
+                      onChange={() => {
+                        updateField('dispute_objects', {
+                          ...formData.dispute_objects,
+                          reajuste_etario_modalidade: 'individual',
+                          reajuste_pme_etario: false,
+                        });
+                      }}
+                      className="text-cyan-500 focus:ring-cyan-400"
+                    />
+                    <span>Individual</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Aviso Prévio */}
+            <div
+              className={`p-4 rounded-xl border transition ${
+                formData.dispute_objects.aviso_previo
+                  ? 'bg-cyan-500/10 border-cyan-500/40 text-slate-100'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
+              }`}
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dispute_objects.aviso_previo)}
+                  onChange={(e) => {
+                    updateField('dispute_objects', {
+                      ...formData.dispute_objects,
+                      aviso_previo: e.target.checked,
+                    });
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs font-semibold text-slate-200">Aviso Prévio</span>
+              </label>
+            </div>
+
+            {/* 4. Prêmio Complementar */}
+            <div
+              className={`p-4 rounded-xl border transition ${
+                formData.dispute_objects.premio_complementar
+                  ? 'bg-cyan-500/10 border-cyan-500/40 text-slate-100'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
+              }`}
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dispute_objects.premio_complementar)}
+                  onChange={(e) => {
+                    updateField('dispute_objects', {
+                      ...formData.dispute_objects,
+                      premio_complementar: e.target.checked,
+                    });
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs font-semibold text-slate-200">Prêmio Complementar</span>
+              </label>
+            </div>
+
+            {/* 5. Outro */}
+            <div
+              className={`p-4 rounded-xl border transition ${
+                formData.dispute_objects.outro
+                  ? 'bg-cyan-950/20 border-cyan-500/40'
+                  : 'bg-slate-900/60 border-slate-800'
+              }`}
+            >
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.dispute_objects.outro)}
+                  onChange={(e) => {
+                    updateField('dispute_objects', {
+                      ...formData.dispute_objects,
+                      outro: e.target.checked,
+                    });
+                  }}
+                  className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-400"
+                />
+                <span className="text-xs font-semibold text-slate-200">Outro</span>
+              </label>
+
+              {formData.dispute_objects.outro && (
+                <div className="mt-3 ml-7 space-y-1.5 pt-2 border-t border-slate-800/80">
+                  <label className="block text-[11px] font-medium text-cyan-300">
+                    Especificação do Objeto <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.dispute_objects.outro_descricao || ''}
+                    onChange={(e) =>
+                      updateField('dispute_objects', {
+                        ...formData.dispute_objects,
+                        outro_descricao: e.target.value,
+                      })
+                    }
+                    placeholder="Especifique detalhadamente o objeto da lide."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  />
+                  {clientErrors['dispute_objects.outro_descricao'] && (
+                    <p className="text-[11px] text-rose-400">
+                      {clientErrors['dispute_objects.outro_descricao']}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SEÇÃO 05: SÍNTESE E DELIMITAÇÃO */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                05
+              </span>
+              <span>Ementa Executiva & Delimitação da Controvérsia</span>
+            </h3>
+            <span className="text-[11px] text-slate-500 font-mono">Fatos e Objeto</span>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                EMENTA EXECUTIVA (SÍNTESE INTRODUTÓRIA) <span className="text-cyan-400">*</span>
+              </label>
+              <textarea
+                rows={2}
+                disabled={isSubmitting}
+                value={formData.executive_summary}
+                onChange={(e) => updateField('executive_summary', e.target.value)}
+                placeholder="Síntese da tese defensiva e enquadramento regulatório do caso."
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.executive_summary && (
+                <p className="text-[11px] text-rose-400 mt-0.5">{clientErrors.executive_summary}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                RESUMO DA PETIÇÃO INICIAL <span className="text-cyan-400">*</span>
+              </label>
+              <textarea
+                rows={2}
+                disabled={isSubmitting}
+                value={formData.claim_summary}
+                onChange={(e) => updateField('claim_summary', e.target.value)}
+                placeholder="Principais alegações fáticas e pedidos formulados pela parte adversa."
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.claim_summary && (
+                <p className="text-[11px] text-rose-400 mt-0.5">{clientErrors.claim_summary}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                EXATA DELIMITAÇÃO DA CONTROVÉRSIA <span className="text-cyan-400">*</span>
+              </label>
+              <textarea
+                rows={2}
+                disabled={isSubmitting}
+                value={formData.controversy_delimitation}
+                onChange={(e) => updateField('controversy_delimitation', e.target.value)}
+                placeholder="Ponto de atrito central (ex: legalidade do reajuste por sinistralidade em contrato PME)."
+                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+              />
+              {clientErrors.controversy_delimitation && (
+                <p className="text-[11px] text-rose-400 mt-0.5">
+                  {clientErrors.controversy_delimitation}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SEÇÃO 06: TUTELA & DANO MORAL */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                06
+              </span>
+              <span>Tutela de Urgência & Dano Moral</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">Regras Condicionais</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* TUTELA */}
+            <div className="space-y-3">
+              <label className="block text-xs font-medium text-slate-300">
+                SITUAÇÃO DA TUTELA DE URGÊNCIA <span className="text-cyan-400">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['not_requested', 'denied', 'granted'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => updateField('injunction_status', st)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-medium transition ${
+                      formData.injunction_status === st
+                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {st === 'not_requested' && 'Não Requerida'}
+                    {st === 'denied' && 'Indeferida'}
+                    {st === 'granted' && 'Deferida'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* DANO MORAL */}
+            <div className="space-y-3">
+              <label className="block text-xs font-medium text-slate-300">
+                PLEITO DE INDENIZAÇÃO POR DANO MORAL <span className="text-cyan-400">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateField('moral_damages_status', 'not_claimed')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
+                    formData.moral_damages_status === 'not_claimed'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Não Pleiteado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('moral_damages_status', 'claimed')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
+                    formData.moral_damages_status === 'claimed'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Foi Pleiteado
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SEÇÃO 07: PRELIMINARES & PREJUDICIAIS */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                07
+              </span>
+              <span>Preliminares & Prejudiciais de Mérito</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">Regras Determinísticas</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+            {/* ILEGITIMIDADE ATIVA */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Ilegitimidade Ativa</div>
+              <p className="text-[11px] text-slate-400">
+                Impugnação à legitimidade ativa da parte adversa.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('standing_challenge_status', 'do_not_challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.standing_challenge_status === 'do_not_challenge'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('standing_challenge_status', 'challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.standing_challenge_status === 'challenge'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Impugnar
+                </button>
+              </div>
+            </div>
+
+            {/* IMPUGNAÇÃO À GRATUIDADE */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Gratuidade de Justiça</div>
+              <p className="text-[11px] text-slate-400">
+                Impugnação ao benefício processual da justiça gratuita.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('legal_aid_status', 'do_not_challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.legal_aid_status !== 'challenge'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('legal_aid_status', 'challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.legal_aid_status === 'challenge'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Impugnar
+                </button>
+              </div>
+              {formData.legal_aid_status === 'challenge' && (
+                <div className="pt-1">
+                  <select
+                    value={formData.legal_aid_target || 'both'}
+                    onChange={(e) =>
+                      updateField('legal_aid_target', e.target.value as 'pf' | 'pj' | 'both')
+                    }
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-[11px] text-slate-200"
+                  >
+                    <option value="both">Alvo: Ambas (PF e PJ)</option>
+                    <option value="pf">Alvo: Somente PF</option>
+                    <option value="pj">Alvo: Somente PJ</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* IMPUGNAÇÃO AO VALOR DA CAUSA */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Valor da Causa (Art. 293)</div>
+              <p className="text-[11px] text-slate-400">
+                Inadequação com base no proveito econômico real.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('claim_value_challenge_status', 'do_not_challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.claim_value_challenge_status === 'do_not_challenge'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('claim_value_challenge_status', 'challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.claim_value_challenge_status === 'challenge'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Impugnar
+                </button>
+              </div>
+            </div>
+
+            {/* INÉPCIA DA INICIAL */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Inépcia da Petição Inicial</div>
+              <p className="text-[11px] text-slate-400">
+                Ausência de lógica ou pedidos indeterminados.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('petition_aptitude_status', 'do_not_challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.petition_aptitude_status === 'do_not_challenge'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('petition_aptitude_status', 'challenge')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.petition_aptitude_status === 'challenge'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Argui Inépcia
+                </button>
+              </div>
+            </div>
+
+            {/* PRESCRIÇÃO TRIENAL */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Prescrição Trienal (Tema 610)</div>
+              <p className="text-[11px] text-slate-400">
+                Prazo de 3 anos para restituição de parcelas (STJ).
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('prescription_triennial_status', 'do_not_argue')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.prescription_triennial_status === 'do_not_argue'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('prescription_triennial_status', 'argue')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.prescription_triennial_status === 'argue'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Arguir Trienal
+                </button>
+              </div>
+            </div>
+
+            {/* PRESCRIÇÃO DECENAL */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Prescrição Decenal (Art. 205 CC)</div>
+              <p className="text-[11px] text-slate-400">
+                Prazo geral de 10 anos / inadimplemento contratual.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => updateField('prescription_decennial_status', 'do_not_argue')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.prescription_decennial_status === 'do_not_argue'
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Não
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('prescription_decennial_status', 'argue')}
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
+                    formData.prescription_decennial_status === 'argue'
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-medium'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  Arguir Decenal
+                </button>
+              </div>
+            </div>
+
+            {/* REPETIÇÃO DE INDÉBITO */}
+            <div className="p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 space-y-2">
+              <div className="font-semibold text-slate-200">Repetição de Indébito</div>
+              <p className="text-[11px] text-slate-400">
+                Defesa contra restituição simples ou em dobro.
+              </p>
+              <select
+                value={formData.repetition_status}
+                onChange={(e) =>
+                  updateField(
+                    'repetition_status',
+                    e.target.value as 'not_claimed' | 'simple' | 'double'
+                  )
+                }
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-[11px] text-slate-200"
               >
-                <option value="Contestação">Contestação (Ativo)</option>
-                <option value="Recurso Inominado" disabled>
-                  Recurso Inominado (Em validação)
-                </option>
-                <option value="Apelação" disabled>
-                  Apelação (Em validação)
-                </option>
-                <option value="Agravo de Instrumento" disabled>
-                  Agravo de Instrumento (Em breve)
-                </option>
-                <option value="Contraminuta de Agravo" disabled>
-                  Contraminuta de Agravo (Em breve)
-                </option>
-                <option value="Contrarrazões" disabled>
-                  Contrarrazões (Em breve)
-                </option>
-                <option value="Petição Intermediária" disabled>
-                  Petição Intermediária (Em breve)
-                </option>
+                <option value="not_claimed">Não foi pleiteada</option>
+                <option value="simple">Foi pleiteada na forma simples</option>
+                <option value="double">Foi pleiteada em dobro</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* SECTION 2: MATÉRIA JURÍDICA */}
-        <div className="p-6 rounded-xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono-tech text-[10px]">
-                  02
-                </span>
-                <span>Matéria Controvertida</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Selecione uma ou mais matérias para direcionamento da fundamentação técnica.
-              </p>
-            </div>
-          </div>
-
-          <SubjectMultiSelect
-            selected={subjects}
-            onChange={(newSubjects) => {
-              setSubjects(newSubjects);
-              setErrors((prev) => ({ ...prev, subjects: '' }));
-            }}
-            disabled={isSubmitting}
-            error={errors.subjects}
-          />
-        </div>
-
-        {/* SECTION 3: ORIENTAÇÕES ESPECÍFICAS (OPCIONAL) */}
-        <div className="p-6 rounded-xl bg-[#0B1325] border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono-tech text-[10px]">
-                  03
-                </span>
-                <span>Orientações para este Caso</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Diretrizes táticas suplementares para guiar a argumentação.
-              </p>
-            </div>
-            <span className="text-[11px] font-mono-tech text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
-              Opcional
-            </span>
-          </div>
-
-          <textarea
-            rows={3}
-            disabled={isSubmitting}
-            value={specialInstructions}
-            onChange={(e) => setSpecialInstructions(e.target.value)}
-            placeholder="Informe aspectos que mereçam atenção especial na elaboração da peça, teses que devam ser avaliadas ou outras orientações relevantes."
-            className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 leading-relaxed font-sans disabled:opacity-60"
-          />
-        </div>
-
-        {/* SECTION 4: UPLOAD DO PROCESSO */}
-        <div className="p-6 rounded-xl bg-[#0B1325] border border-slate-800 space-y-4">
+        {/* SEÇÃO 08: ANEXO DOS AUTOS PROCESSUAIS */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono-tech text-[10px]">
-                04
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                08
               </span>
-              <span>Anexo do Processo Judicial</span>
+              <span>Anexo dos Autos Processuais (PDF)</span>
             </h3>
-            <span className="text-[11px] text-cyan-400 font-mono-tech">Storage Privado</span>
+            <span className="text-[11px] text-cyan-400 font-mono">Storage Criptografado</span>
           </div>
 
           <PdfUploader
@@ -359,64 +1752,79 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             selectedFile={selectedFile}
             onFileSelect={(file) => {
               setSelectedFile(file);
-              setErrors((prev) => ({ ...prev, file: '' }));
+              setClientErrors((prev) => {
+                const copy = { ...prev };
+                delete copy.file;
+                return copy;
+              });
             }}
             onFileRemove={() => setSelectedFile(null)}
           />
-          {errors.file && <p className="text-[11px] text-rose-400">{errors.file}</p>}
         </div>
 
-        {/* SECTION 5: MODELO VALIDADO (ESTADO SEMANTICAMENTE NEUTRO) */}
-        <div className="p-4 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-cyan-900/40 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-cyan-200">
-                Diretrizes e Arquitetura Jurídica
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Modelo jurídico validado será aplicado na etapa de processamento.
-              </p>
-            </div>
-          </div>
-
-          <span className="text-[10px] font-mono-tech px-2.5 py-1 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 whitespace-nowrap self-start sm:self-center">
-            Padrão Homologado
-          </span>
-        </div>
-
-        {/* SUBMIT BUTTON & HONEST PROGRESS STATUS */}
+        {/* BARRA INFERIOR DE AÇÃO & INSPEÇÃO */}
         <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-800">
-          <div className="text-xs text-slate-400 flex items-center gap-2">
-            <Info className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span>
-              {isSubmitting
-                ? progressStatus || 'Processando solicitação...'
-                : 'Ao confirmar, o processo e o arquivo PDF serão persistidos com segurança no Supabase.'}
-            </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMapaModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
+            >
+              <Scale className="w-4 h-4 text-cyan-400" />
+              <span>Inspecionar Mapa da Peça ({activeBlocksCount} Blocos)</span>
+            </button>
+
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{evaluation.includedRequests.length} pedidos vinculados</span>
+            </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold uppercase tracking-wider shadow-xl shadow-cyan-950/60 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+            disabled={isSubmitting || !isCurrentPieceHomologated}
+            className={`inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-xl shrink-0 ${
+              !isCurrentPieceHomologated
+                ? 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-cyan-950/60 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                <span>{progressStatus || 'REGISTRANDO...'}</span>
+                <span>{progressStatus || 'SALVANDO SNAPSHOT...'}</span>
+              </>
+            ) : !isCurrentPieceHomologated ? (
+              <>
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <span>ARQUITETURA NÃO HOMOLOGADA</span>
               </>
             ) : (
               <>
-                <span>GERAR PEÇA</span>
+                <FileCheck className="w-4 h-4" />
+                <span>VALIDAR E SALVAR SNAPSHOT</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </div>
       </form>
+
+      {/* Modal do Mapa da Peça */}
+      <MapaDaPecaModal
+        isOpen={isMapaModalOpen}
+        onClose={() => setIsMapaModalOpen(false)}
+        assembly={evaluation}
+        errors={Object.entries(clientErrors).map(([field, message]) => ({ field, message }))}
+        onConfirmGenerate={() => {
+          setIsMapaModalOpen(false);
+          const form = document.querySelector('form');
+          if (form) {
+            form.requestSubmit();
+          }
+        }}
+        isGenerating={isSubmitting}
+      />
     </div>
   );
 };

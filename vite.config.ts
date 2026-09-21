@@ -1,11 +1,60 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import { defineConfig, Plugin } from 'vite';
+import { handleGenerateDocx } from './src/server/generateDocxHandler';
+
+function apiProxyPlugin(): Plugin {
+  return {
+    name: 'vipaz-api-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url === '/api/health' && req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(
+            JSON.stringify({
+              status: 'ok',
+              service: 'VIPAZ Jurídico CAW Motor DOCX',
+              version: '1.0.0',
+              timestamp: new Date().toISOString(),
+            })
+          );
+          return;
+        }
+
+        if (req.url === '/api/generate-docx' && req.method === 'POST') {
+          let bodyStr = '';
+          req.on('data', (chunk) => {
+            bodyStr += chunk;
+          });
+          req.on('end', async () => {
+            try {
+              const body = bodyStr ? JSON.parse(bodyStr) : {};
+              (req as any).body = body;
+              await handleGenerateDocx(req as any, res as any);
+            } catch (e: any) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  error: e?.message || 'Erro interno no processamento do DOCX',
+                })
+              );
+            }
+          });
+          return;
+        }
+
+        next();
+      });
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), apiProxyPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

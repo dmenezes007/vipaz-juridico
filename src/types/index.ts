@@ -127,6 +127,16 @@ export interface DocumentSection {
   paragraphs: string[];
 }
 
+export interface StructuredDocumentContent {
+  addressing: string;
+  qualification: string;
+  preliminaries: DocumentSection[];
+  facts_summary: DocumentSection[];
+  merits: DocumentSection[];
+  requests: string[];
+  closing: string;
+}
+
 export interface GeneratedDocument {
   id: string;
   organization_id: string;
@@ -135,8 +145,9 @@ export interface GeneratedDocument {
   document_type: DocumentType;
   version: string;
   docx_storage_path: string;
-  pdf_storage_path: string;
+  pdf_storage_path?: string | null;
   created_at: string;
+  updated_at?: string;
   title: string;
   metadata: {
     court: string;
@@ -146,15 +157,7 @@ export interface GeneratedDocument {
     pages_estimated: number;
     reviewed_by?: string;
   };
-  structured_content: {
-    addressing: string;
-    qualification: string;
-    preliminaries: DocumentSection[];
-    facts_summary: DocumentSection[];
-    merits: DocumentSection[];
-    requests: string[];
-    closing: string;
-  };
+  structured_content: StructuredDocumentContent;
 }
 
 export interface AuditEvent {

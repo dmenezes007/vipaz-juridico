@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Organization, Profile } from '../types';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -25,9 +25,26 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('vipaz_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('vipaz_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   return (
-    <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070C18] text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row transition-colors">
       {/* Sidebar Navigation */}
       <Sidebar
         currentPath={currentPath}
@@ -38,6 +55,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenTenantSwitcher={() => setIsTenantModalOpen(true)}
         isOpenMobile={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
       {/* Main Content Area */}
@@ -49,7 +68,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
         />
 
-        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
           {children}
         </main>
       </div>

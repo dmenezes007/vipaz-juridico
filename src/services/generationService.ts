@@ -13,7 +13,7 @@
 
 import { supabase } from '../lib/supabase';
 import { authService } from './authService';
-import {
+import type {
   GenerationJob,
   GenerationStep,
   DocumentType,
@@ -132,6 +132,9 @@ export function sanitizeFilename(originalName: string): string {
   return `${finalBase}.pdf`;
 }
 
+const DEFAULT_N8N_GENERATION_WEBHOOK_URL =
+  'https://agencia-asserto.app.n8n.cloud/webhook/vipaz/caw/generation';
+
 export class GenerationService {
   /**
    * Criação real de processo, matérias, job, etapas, upload no Storage e documento fonte.
@@ -184,6 +187,7 @@ export class GenerationService {
     let uploadedStoragePath: string | null = null;
     let processCreated = false;
     let jobCreated = false;
+    let sourceDocCreated = false;
 
     try {
       // PASSO 3 — Inserir em public.processes
@@ -292,6 +296,7 @@ export class GenerationService {
       if (sourceDocError) {
         throw new Error(`Falha ao registrar documento fonte: ${sourceDocError.message}`);
       }
+      sourceDocCreated = true;
 
       // Auditoria opcional em public.audit_events (executada silenciosamente se permitida pelo RLS)
       try {
@@ -312,6 +317,55 @@ export class GenerationService {
         console.warn('Registro de evento de auditoria ignorado:', auditErr);
       }
 
+      // PASSO 9 — Disparo do Webhook de Produção do n8n
+      params.onProgressState?.('Acionando motor forense n8n...');
+
+      const webhookUrl =
+        (import.meta.env.VITE_N8N_GENERATION_WEBHOOK_URL as string | undefined)?.trim() ||
+        DEFAULT_N8N_GENERATION_WEBHOOK_URL;
+
+      let webhookResponse: Response;
+      try {
+        webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            generation_job_id,
+          }),
+        });
+      } catch (networkErr: unknown) {
+        const netMsg =
+          networkErr instanceof Error ? networkErr.message : 'Falha na conexão de rede';
+        console.error('Erro de rede ao disparar webhook do n8n:', networkErr);
+        throw new Error(
+          `Falha de comunicação com o motor de geração (n8n): ${netMsg}. O processo e a solicitação jurídica (${generation_job_id}) foram registrados e preservados no Supabase para diagnóstico. Verifique a conectividade com o webhook ou políticas de CORS.`
+        );
+      }
+
+      if (!webhookResponse.ok) {
+        let responseBodyText = '';
+        try {
+          responseBodyText = await webhookResponse.text();
+        } catch {
+          responseBodyText = '(não foi possível extrair a resposta do servidor)';
+        }
+
+        console.error('Webhook do n8n retornou erro HTTP:', {
+          status: webhookResponse.status,
+          statusText: webhookResponse.statusText,
+          body: responseBodyText,
+          generation_job_id,
+        });
+
+        throw new Error(
+          `O webhook do motor n8n rejeitou a solicitação (HTTP ${webhookResponse.status}: ${
+            webhookResponse.statusText || 'Erro'
+          }). Resposta: ${responseBodyText || 'Sem conteúdo'}. O job (${generation_job_id}) foi preservado no Supabase para diagnóstico.`
+        );
+      }
+
       params.onProgressState?.('Finalizando solicitação...');
 
       return {
@@ -320,13 +374,22 @@ export class GenerationService {
         storage_path: storagePath,
       };
     } catch (err: unknown) {
-      // COMPENSAÇÃO EM CASO DE FALHA
-      console.error('Erro na criação de Nova Peça, iniciando compensação:', err);
-      await this.compensateFailure({
-        process_id: processCreated ? process_id : undefined,
-        generation_job_id: jobCreated ? generation_job_id : undefined,
-        storage_path: uploadedStoragePath || undefined,
-      });
+      if (!sourceDocCreated) {
+        // COMPENSAÇÃO APENAS EM CASO DE FALHA ANTES DA PERSISTÊNCIA COMPLETA
+        console.error('Erro na criação de Nova Peça antes da persistência completa, iniciando compensação:', err);
+        await this.compensateFailure({
+          process_id: processCreated ? process_id : undefined,
+          generation_job_id: jobCreated ? generation_job_id : undefined,
+          storage_path: uploadedStoragePath || undefined,
+        });
+      } else {
+        // Se process, process_subjects, generation_job, generation_steps, PDF e source_document foram criados com sucesso,
+        // mas o webhook falhou, o generation_job é estritamente preservado para diagnóstico (sem compensação/exclusão).
+        console.warn(
+          'Falha no acionamento do webhook após persistência completa. Job preservado para diagnóstico:',
+          generation_job_id
+        );
+      }
 
       const message = err instanceof Error ? err.message : 'Falha inesperada ao registrar solicitação.';
       throw new Error(message);
@@ -543,11 +606,45 @@ export class GenerationService {
         .from('generated_documents')
         .select('*')
         .eq('generation_job_id', jobId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error || !doc) return null;
-      return doc as GeneratedDocument;
-    } catch {
+
+      const typedDoc: GeneratedDocument = {
+        id: doc.id,
+        organization_id: doc.organization_id,
+        generation_job_id: doc.generation_job_id,
+        process_number: doc.process_number || 'N/A',
+        document_type: (doc.document_type as DocumentType) || 'Contestação',
+        version: doc.version || 'v1.0',
+        docx_storage_path: doc.docx_storage_path,
+        pdf_storage_path: null,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        title: doc.title || (doc.document_type ? `${doc.document_type}` : 'Peça Processual Homologada'),
+        metadata: doc.metadata || {
+          court: 'Vara Cível Competente',
+          represented_party: 'Parte Representada',
+          subjects: [],
+          word_count: 0,
+          pages_estimated: 0,
+        },
+        structured_content: doc.structured_content || {
+          addressing: '',
+          qualification: '',
+          preliminaries: [],
+          facts_summary: [],
+          merits: [],
+          requests: [],
+          closing: '',
+        },
+      };
+
+      return typedDoc;
+    } catch (e) {
+      console.error('Erro ao consultar generated_documents:', e);
       return null;
     }
   }
@@ -561,7 +658,7 @@ export class GenerationService {
     search?: string
   ): Promise<GeneratedDocument[]> {
     try {
-      let query = supabase
+      const query = supabase
         .from('generated_documents')
         .select('*')
         .eq('organization_id', orgId)
@@ -570,7 +667,36 @@ export class GenerationService {
       const { data: docs, error } = await query;
       if (error || !docs) return [];
 
-      let list = docs as GeneratedDocument[];
+      let list = docs.map((doc) => ({
+        id: doc.id,
+        organization_id: doc.organization_id,
+        generation_job_id: doc.generation_job_id,
+        process_number: doc.process_number || 'N/A',
+        document_type: (doc.document_type as DocumentType) || 'Contestação',
+        version: doc.version || 'v1.0',
+        docx_storage_path: doc.docx_storage_path,
+        pdf_storage_path: null,
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        title: doc.title || (doc.document_type ? `${doc.document_type}` : 'Peça Processual Homologada'),
+        metadata: doc.metadata || {
+          court: 'Vara Cível Competente',
+          represented_party: 'Parte Representada',
+          subjects: [],
+          word_count: 0,
+          pages_estimated: 0,
+        },
+        structured_content: doc.structured_content || {
+          addressing: '',
+          qualification: '',
+          preliminaries: [],
+          facts_summary: [],
+          merits: [],
+          requests: [],
+          closing: '',
+        },
+      })) as GeneratedDocument[];
+
       if (search) {
         const q = search.toLowerCase();
         list = list.filter(
@@ -586,10 +712,57 @@ export class GenerationService {
   }
 
   /**
-   * Download de documento — no estado atual, nenhum documento fictício é gerado.
+   * Download autenticado de arquivo DOCX a partir do bucket privado 'generated-documents'.
+   * Não expõe URLs públicas nem utiliza credenciais privilegiadas.
    */
-  downloadDocument(doc: GeneratedDocument, format: 'docx' | 'pdf'): void {
-    console.info('Download solicitado para documento:', doc.id, format);
+  async downloadDocx(docxStoragePath: string, suggestedFileName?: string): Promise<void> {
+    if (!docxStoragePath) {
+      throw new Error('Caminho do arquivo DOCX não informado.');
+    }
+
+    const { data, error } = await supabase.storage
+      .from('generated-documents')
+      .download(docxStoragePath);
+
+    if (error || !data) {
+      throw new Error(
+        error?.message || 'Falha ao baixar o arquivo DOCX do repositório seguro.'
+      );
+    }
+
+    const blobUrl = URL.createObjectURL(data);
+    try {
+      const link = window.document.createElement('a');
+      link.href = blobUrl;
+      link.download = suggestedFileName || 'Peca_Processual.docx';
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+    } finally {
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 2000);
+    }
+  }
+
+  /**
+   * Download de documento gerado. O MVP trabalha exclusivamente com DOCX.
+   */
+  async downloadDocument(doc: GeneratedDocument, format: 'docx' | 'pdf'): Promise<void> {
+    if (format === 'pdf') {
+      console.warn('Geração e download de PDF desabilitados no MVP.');
+      return;
+    }
+    const cleanDocType = (doc.document_type || 'Peca')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanProc = (doc.process_number || '').replace(/[^0-9]/g, '');
+    const fileName = cleanProc
+      ? `${cleanDocType}_${cleanProc}.docx`
+      : `${cleanDocType}_${doc.id.slice(0, 8)}.docx`;
+
+    await this.downloadDocx(doc.docx_storage_path, fileName);
   }
 }
 

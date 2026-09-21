@@ -7,9 +7,15 @@ import { DashboardView } from './views/DashboardView';
 import { NovaPecaView } from './views/NovaPecaView';
 import { GeracaoView } from './views/GeracaoView';
 import { DocumentosView } from './views/DocumentosView';
+import { CasosListView } from './views/CasosListView';
+import { CaseWorkspaceView } from './views/case-workspace/CaseWorkspaceView';
+import { BibliotecaView } from './views/BibliotecaView';
+import { IndicadoresView } from './views/IndicadoresView';
+import { AdminToolsView } from './views/AdminToolsView';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ShieldAlert, LogOut, ArrowRight, Loader2 } from 'lucide-react';
 
-export default function App() {
+function AppContent() {
   const [session, setSession] = useState<AuthSession | null>(authService.getSession());
   const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(authService.isInitialLoading());
   const [userWithoutOrg, setUserWithoutOrg] = useState<boolean>(authService.isUserWithoutOrg());
@@ -62,7 +68,7 @@ export default function App() {
   // Initial Auth Loading Screen
   if (isLoadingAuth) {
     return (
-      <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4">
+      <div className="min-h-screen bg-slate-900 dark:bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4">
         <div className="flex items-center gap-2">
           <span className="font-editorial text-2xl font-bold text-white">VIPAZ</span>
           <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400 font-sans border-l border-slate-700 pl-2">
@@ -80,17 +86,17 @@ export default function App() {
   // User Authenticated in Supabase but without active organization
   if (userWithoutOrg) {
     return (
-      <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-cyan-500/30">
-        <div className="w-full max-w-md bg-[#0B1325] border border-amber-500/30 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+      <div className="min-h-screen bg-slate-900 dark:bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-cyan-500/30">
+        <div className="w-full max-w-md bg-white dark:bg-[#0B1325] border border-amber-500/30 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto">
             <ShieldAlert className="w-6 h-6" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-lg font-bold text-white font-sans">
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white font-sans">
               Organização Não Localizada
             </h1>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Seu usuário está autenticado, mas ainda não possui acesso a uma organização do VIPAZ Jurídico. Entre em contato com o administrador.
             </p>
           </div>
@@ -116,7 +122,6 @@ export default function App() {
 
   // Route 2: Login Page
   if (currentPath === '/login') {
-    // Se o usuário já estiver autenticado com organização válida, redireciona diretamente ao seu tenant
     if (session) {
       const target = `/app/${session.organization.slug}`;
       window.history.replaceState({}, '', target);
@@ -146,7 +151,6 @@ export default function App() {
 
   // Authenticated Area Protection: /app/*
   if (currentPath.startsWith('/app')) {
-    // If not authenticated, redirect to /login
     if (!session) {
       window.history.replaceState({}, '', '/login');
       return (
@@ -186,7 +190,7 @@ export default function App() {
     // Validate tenant association in Supabase
     if (requestedSlug && !authService.hasAccessToTenant(requestedSlug)) {
       return (
-        <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4 text-center selection:bg-cyan-500/30">
+        <div className="min-h-screen bg-slate-900 dark:bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4 text-center selection:bg-cyan-500/30">
           <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
             <ShieldAlert className="w-6 h-6" />
           </div>
@@ -237,6 +241,107 @@ export default function App() {
       );
     }
 
+    // Match /app/:slug/caso/:id
+    const casoMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/caso\/([a-zA-Z0-9_-]+)$/);
+    if (casoMatch) {
+      const caseId = casoMatch[2];
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <CaseWorkspaceView
+            caseId={caseId}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
+    // Match /app/:slug/casos
+    const casosMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/casos$/);
+    if (casosMatch) {
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <CasosListView
+            organization={currentOrg}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
+    // Match /app/:slug/biblioteca
+    const bibliotecaMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/biblioteca$/);
+    if (bibliotecaMatch) {
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <BibliotecaView
+            organization={currentOrg}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
+    // Match /app/:slug/indicadores
+    const indicadoresMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/indicadores$/);
+    if (indicadoresMatch) {
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <IndicadoresView
+            organization={currentOrg}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
+    // Match /app/:slug/admin
+    const adminMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/admin$/);
+    if (adminMatch) {
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <AdminToolsView
+            organization={currentOrg}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
     // Match /app/:slug/nova-peca
     const novaPecaMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/nova-peca$/);
     if (novaPecaMatch) {
@@ -277,7 +382,7 @@ export default function App() {
       );
     }
 
-    // Match /app/:slug (Dashboard)
+    // Match /app/:slug (Início)
     const dashboardMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)$/);
     if (dashboardMatch) {
       return (
@@ -300,7 +405,7 @@ export default function App() {
 
   // Fallback / 404 Route
   return (
-    <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4 text-center">
+    <div className="min-h-screen bg-slate-900 dark:bg-[#070C18] text-slate-100 flex flex-col items-center justify-center p-6 space-y-4 text-center">
       <div className="text-cyan-400 font-mono-tech text-xs uppercase tracking-wider">
         VIPAZ JURÍDICO
       </div>
@@ -315,5 +420,13 @@ export default function App() {
         Voltar à página inicial
       </button>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
