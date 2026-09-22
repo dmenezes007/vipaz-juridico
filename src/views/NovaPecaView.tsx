@@ -345,35 +345,17 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="vipaz-production max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono uppercase tracking-wider mb-1">
-            <Building2 className="w-3.5 h-3.5" />
-            <span>{organization.name}</span>
-            <span className="text-slate-600">•</span>
-            <span>MOTOR DETERMINÍSTICO DE MONTAGEM JURÍDICA</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
-            NOVA PEÇA JURÍDICA
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Motor Determinístico de Montagem Jurídica: seleção de peças, teses fático-regulatórias, regras forenses e persistência de snapshot no Supabase.
-          </p>
+          <div className="vipaz-eyebrow mb-2">${organization.name}</div>
+          <h1 className="vipaz-page-title">Nova peça</h1>
+          <p className="vipaz-page-description">Informe os dados do caso, defina as questões jurídicas aplicáveis e revise a estrutura antes de produzir o documento.</p>
         </div>
 
         {/* Quick Actions */}
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleLoadOfficialSnapshot}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition shadow-sm"
-            title="Carregar o snapshot homologado oficial (454b44b2-360e-4866-adff-eee6173aeec5)"
-          >
-            <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Snapshot Homologado ({OFFICIAL_HOMOLOGATED_INPUT_ID.slice(0, 8)}...)</span>
-          </button>
 
           <button
             type="button"
@@ -382,7 +364,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs font-medium border border-cyan-500/30 transition shadow-sm disabled:opacity-50"
           >
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Preencher Caso Homologado</span>
+            <span>Preencher exemplo</span>
           </button>
 
           <button
@@ -391,7 +373,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
           >
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Mapa da Peça ({activeBlocksCount})</span>
+            <span>Revisar estrutura ({activeBlocksCount})</span>
           </button>
         </div>
       </div>
@@ -409,14 +391,9 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-                  <span>Snapshot Jurídico Persistido com Sucesso</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
-                    FASE 3 — PERSISTIDO
-                  </span>
+                  <span>Estrutura salva com sucesso</span>
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Registro consolidado na tabela <code className="text-cyan-300 font-mono">public.legal_case_inputs</code> sem geração de DOCX, chamadas de IA ou webhooks.
-                </p>
+                <p className="text-xs text-slate-400">Os dados do caso e a estrutura jurídica foram registrados. O documento oficial já pode ser produzido.</p>
               </div>
             </div>
             <button
@@ -505,139 +482,15 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
 
           {/* Seção de Geração Experimental de DOCX (Fase 4) */}
-          <div className="pt-4 border-t border-cyan-500/20 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-cyan-200">
-                  <FileText className="w-4 h-4 text-cyan-400" />
-                  <span>PROVA EXPERIMENTAL: GERAÇÃO DO PRIMEIRO DOCX DETERMINÍSTICO</span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Monta e renderiza o arquivo DOCX real a partir do snapshot persistido, sem IA e sem webhooks.
-                </p>
-              </div>
-
-              {!docxResult && (
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    id="btn-generate-phase41-docx"
-                    onClick={() => handleGeneratePhase41Docx(persistedSnapshot.legal_case_input_id)}
-                    disabled={isGeneratingDocx}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {isGeneratingDocx ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                        <span>Renderizando DOCX...</span>
-                      </>
-                    ) : (
-                      <>
-                        <FileDown className="w-4 h-4 text-slate-950" />
-                        <span>GERAR DOCX FASE 4.1 (28 BLOCOS)</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-generate-experimental-docx"
-                    onClick={() => handleGenerateExperimentalDocx(persistedSnapshot.legal_case_input_id)}
-                    disabled={isGeneratingDocx}
-                    className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span>DOCX FASE 4 (27 BLOCOS)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Captura e exibição de erro sem falso sucesso */}
-            {docxError && (
-              <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-semibold block text-rose-300">Falha ao gerar o DOCX:</span>
-                  <span className="text-rose-200/90">{docxError}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Resultado da geração DOCX */}
-            {docxResult && (
-              <div
-                id="experimental-docx-result"
-                className="p-4 rounded-xl bg-slate-900/90 border border-emerald-500/30 space-y-3 animate-in fade-in duration-200"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white font-mono">
-                          {docxResult.filename}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-400/10 text-emerald-300 border border-emerald-400/20">
-                          DOCX VÁLIDO ({docxResult.fileSizeFormatted})
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Documento gerado com {docxResult.includedBlocksCount} blocos e {docxResult.linkedRequestsCount} pedidos vinculados.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      id="btn-download-docx"
-                      onClick={handleDownloadGeneratedDocx}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20"
-                    >
-                      <Download className="w-4 h-4 text-slate-950" />
-                      <span>DOWNLOAD DOCX</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateExperimentalDocx(persistedSnapshot.legal_case_input_id)}
-                      disabled={isGeneratingDocx}
-                      title="Gerar novamente"
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingDocx ? 'animate-spin' : ''}`} />
-                    </button>
-                  </div>
-                </div>
-
-                {docxResult.unhomologatedBlocks.length > 0 && (
-                  <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
-                    <Info className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>
-                      {docxResult.unhomologatedBlocks.length} bloco(s) não homologado(s) receberam marcador visual: {docxResult.unhomologatedBlocks.join(', ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Seção da Fase 5: Integração Nativa VIPAZ -> Motor DOCX CAW (n8n / Carbone) */}
+          
           <div className="pt-4 border-t border-indigo-500/30 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
                   <Workflow className="w-4 h-4 text-indigo-400" />
-                  <span>FASE 5 — INTEGRAÇÃO NATIVA: MOTOR DOCX CAW (n8n / CARBONE)</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-200 border border-indigo-500/30">
-                    Homologado
-                  </span>
+                  <span>Produzir documento</span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Converte a saída do AssemblyEngine em payload documental, aciona o webhook do n8n, processa o template Carbone e confirma gravação no Supabase Storage.
-                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Gere a versão oficial em DOCX a partir da estrutura revisada.</p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -656,7 +509,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   ) : (
                     <>
                       <HardDrive className="w-4 h-4 text-slate-950" />
-                      <span>GERAR DOCX OFICIAL CAW (n8n)</span>
+                      <span>Gerar DOCX</span>
                     </>
                   )}
                 </button>
@@ -667,7 +520,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             {(isGeneratingCawDocx || cawDocxStep !== 'idle') && (
               <div className="p-3.5 rounded-xl bg-slate-900/90 border border-indigo-500/20 space-y-2.5 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-semibold text-slate-300">Status do Fluxo de Produção:</span>
+                  <span className="font-semibold text-slate-300">Produção do documento</span>
                   <span className="font-mono text-indigo-300">{cawDocxStepMessage}</span>
                 </div>
 
@@ -679,7 +532,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    1. Payload
+                    1. Preparando
                   </div>
 
                   <div className={`p-2 rounded-lg text-center transition ${
@@ -689,7 +542,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    2. Webhook n8n
+                    2. Enviando
                   </div>
 
                   <div className={`p-2 rounded-lg text-center transition ${
@@ -699,7 +552,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    3. Carbone DOCX
+                    3. Formatando
                   </div>
 
                   <div className={`p-2 rounded-lg text-center transition ${
@@ -709,7 +562,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    4. Storage
+                    4. Salvando
                   </div>
 
                   <div className={`p-2 rounded-lg text-center transition ${
@@ -719,7 +572,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-slate-800/80 text-emerald-300 border border-emerald-500/20'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    5. Registro
+                    5. Finalizando
                   </div>
 
                   <div className={`p-2 rounded-lg text-center transition ${
@@ -729,7 +582,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    {cawDocxStep === 'error' ? 'Falha' : '6. Sucesso'}
+                    {cawDocxStep === 'error' ? 'Falha' : '6. Concluído'}
                   </div>
                 </div>
               </div>
@@ -743,7 +596,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               >
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold block text-rose-300">Falha na integração com o motor CAW:</span>
+                  <span className="font-semibold block text-rose-300">Não foi possível gerar o documento:</span>
                   <span className="text-rose-200/90">{cawDocxError}</span>
                 </div>
               </div>
@@ -765,9 +618,6 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                         <span className="text-xs font-bold text-white font-mono">
                           {cawDocxResult.filename}
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-400/10 text-indigo-300 border border-indigo-400/20">
-                          MOTOR CAW / CARBONE DOCX HOMOLOGADO
-                        </span>
                         {cawDocxResult.duration_ms && (
                           <span className="text-[10px] text-slate-400 font-mono">
                             ({(cawDocxResult.duration_ms / 1000).toFixed(1)}s)
@@ -776,11 +626,6 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         Documento gerado com {cawDocxResult.included_blocks_count} blocos e {cawDocxResult.linked_requests_count} pedidos vinculados.
-                        {cawDocxResult.docx_storage_path && (
-                          <span className="block font-mono text-[10px] text-slate-500 mt-0.5">
-                            Caminho: {cawDocxResult.docx_storage_path}
-                          </span>
-                        )}
                       </p>
                     </div>
                   </div>
@@ -793,7 +638,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-bold text-xs transition shadow-md shadow-indigo-500/20 cursor-pointer"
                     >
                       <Download className="w-4 h-4 text-slate-950" />
-                      <span>DOWNLOAD DOCX CAW</span>
+                      <span>Baixar DOCX</span>
                     </button>
 
                     <button
@@ -801,7 +646,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       onClick={() => onNavigate(`/app/${organization.slug}/geracao/${cawDocxResult.job_id}`)}
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs border border-slate-700 transition cursor-pointer"
                     >
-                      <span>Acompanhar Job</span>
+                      <span>Ver produção</span>
                       <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                   </div>
@@ -829,7 +674,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </span>
               <span>Identificação do Processo & Juízo Competente</span>
             </h3>
-            <span className="text-[11px] text-slate-500 font-mono">Regras de Endereçamento</span>
+            <span className="text-[11px] text-slate-500 font-mono">Dados do juízo</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1429,7 +1274,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </span>
               <span>Tutela de Urgência & Dano Moral</span>
             </h3>
-            <span className="text-[11px] text-cyan-400 font-mono">Regras Condicionais</span>
+            <span className="text-[11px] text-cyan-400 font-mono">Seleção do caso</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1500,7 +1345,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </span>
               <span>Preliminares & Prejudiciais de Mérito</span>
             </h3>
-            <span className="text-[11px] text-cyan-400 font-mono">Regras Determinísticas</span>
+            <span className="text-[11px] text-cyan-400 font-mono">Questões aplicáveis</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
@@ -1744,7 +1589,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </span>
               <span>Anexo dos Autos Processuais (PDF)</span>
             </h3>
-            <span className="text-[11px] text-cyan-400 font-mono">Storage Criptografado</span>
+            <span className="text-[11px] text-cyan-400 font-mono">Opcional</span>
           </div>
 
           <PdfUploader
@@ -1771,12 +1616,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
             >
               <Scale className="w-4 h-4 text-cyan-400" />
-              <span>Inspecionar Mapa da Peça ({activeBlocksCount} Blocos)</span>
+              <span>Revisar estrutura ({activeBlocksCount})</span>
             </button>
 
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{evaluation.includedRequests.length} pedidos vinculados</span>
+              <span>Estrutura pronta para revisão</span>
             </div>
           </div>
 
@@ -1792,7 +1637,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                <span>{progressStatus || 'SALVANDO SNAPSHOT...'}</span>
+                <span>{progressStatus || 'SALVANDO...'}</span>
               </>
             ) : !isCurrentPieceHomologated ? (
               <>
@@ -1802,7 +1647,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             ) : (
               <>
                 <FileCheck className="w-4 h-4" />
-                <span>VALIDAR E SALVAR SNAPSHOT</span>
+                <span>SALVAR E CONTINUAR</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
