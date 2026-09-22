@@ -46,26 +46,17 @@ export const CasosListView: React.FC<CasosListViewProps> = ({
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <Scale className="w-3.5 h-3.5" />
-            <span>{organization.name}</span>
-            <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span>GESTÃO DE PROCESSOS & CASOS</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Casos Jurídicos
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Workspaces processuais para análise fática, definição de teses e produção documental.
-          </p>
+          <div className="vipaz-eyebrow mb-2">{organization.name}</div>
+          <h1 className="vipaz-page-title">Casos</h1>
+          <p className="vipaz-page-description">Organize processos, contexto e documentos em um único workspace.</p>
         </div>
 
         <button
           onClick={() => onNavigate(`/app/${organization.slug}/nova-peca`)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold uppercase tracking-wider transition shadow-sm self-start sm:self-center"
+          className="vipaz-button-primary self-start sm:self-center"
         >
           <Plus className="w-4 h-4" />
-          <span>Novo Caso / Peça</span>
+          <span>Novo caso</span>
         </button>
       </div>
 
@@ -155,7 +146,7 @@ export const CasosListView: React.FC<CasosListViewProps> = ({
               </span>
 
               <div className="text-cyan-600 dark:text-cyan-400 font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                <span>Acessar Workspace do Caso</span>
+                <span>Abrir caso</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
