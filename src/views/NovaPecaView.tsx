@@ -349,7 +349,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <div className="vipaz-eyebrow mb-2">${organization.name}</div>
+          <div className="vipaz-eyebrow mb-2">{organization.name}</div>
           <h1 className="vipaz-page-title">Nova peça</h1>
           <p className="vipaz-page-description">Informe os dados do caso, defina as questões jurídicas aplicáveis e revise a estrutura antes de produzir o documento.</p>
         </div>
@@ -409,79 +409,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
-                generation_job_id
-              </span>
-              <div className="flex items-center justify-between gap-1">
-                <span
-                  className="text-xs font-mono text-cyan-300 truncate select-all"
-                  title={persistedSnapshot.generation_job_id}
-                >
-                  {persistedSnapshot.generation_job_id}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(persistedSnapshot.generation_job_id, 'job')}
-                  className="text-slate-400 hover:text-white p-1 shrink-0"
-                  title="Copiar Job ID"
-                >
-                  {copiedField === 'job' ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
-                legal_case_input_id
-              </span>
-              <div className="flex items-center justify-between gap-1">
-                <span
-                  className="text-xs font-mono text-cyan-300 truncate select-all"
-                  title={persistedSnapshot.legal_case_input_id}
-                >
-                  {persistedSnapshot.legal_case_input_id}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(persistedSnapshot.legal_case_input_id, 'input')}
-                  className="text-slate-400 hover:text-white p-1 shrink-0"
-                  title="Copiar Input ID"
-                >
-                  {copiedField === 'input' ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
-                Blocos Incluídos
-              </span>
-              <span className="text-base font-bold text-white font-mono">
-                {persistedSnapshot.included_blocks_count}
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">
-                Pedidos Vinculados
-              </span>
-              <span className="text-base font-bold text-white font-mono">
-                {persistedSnapshot.linked_requests_count}
-              </span>
-            </div>
-          </div>
-
-          {/* Seção de Geração Experimental de DOCX (Fase 4) */}
+          {/* Documento pronto para produção */}
           
           <div className="pt-4 border-t border-indigo-500/30 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -643,7 +571,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => onNavigate(`/app/${organization.slug}/geracao/${cawDocxResult.job_id}`)}
+                      onClick={() => onNavigate(`/app/${organization.slug}/geracoes/${cawDocxResult.job_id}`)}
                       className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs border border-slate-700 transition cursor-pointer"
                     >
                       <span>Ver produção</span>
