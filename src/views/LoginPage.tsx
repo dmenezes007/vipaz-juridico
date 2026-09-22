@@ -1,249 +1,33 @@
 import React, { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
 import { authService, AuthError } from '../services/authService';
 
-interface LoginPageProps {
-  onLoginSuccess: (tenantSlug: string) => void;
-  onNavigateHome: () => void;
-  initialErrorMessage?: string | null;
-}
+interface LoginPageProps { onLoginSuccess: (tenantSlug: string) => void; onNavigateHome: () => void; initialErrorMessage?: string | null; }
 
-export const LoginPage: React.FC<LoginPageProps> = ({
-  onLoginSuccess,
-  onNavigateHome,
-  initialErrorMessage,
-}) => {
-  const [email, setEmail] = useState('alexandre.castro@cawadvogados.com.br');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage || null);
-  const [forgotPasswordNotice, setForgotPasswordNotice] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) {
-      setErrorMessage('Por favor, informe seu e-mail corporativo.');
-      return;
-    }
-
-    if (!password) {
-      setErrorMessage('Por favor, informe sua senha de acesso.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMessage(null);
-    setForgotPasswordNotice(false);
-
-    try {
-      const session = await authService.login(email, password);
-      onLoginSuccess(session.organization.slug);
-    } catch (err) {
-      if (err instanceof AuthError) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage('Não foi possível autenticar. Verifique suas credenciais de acesso.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectEvaluationEmail = (evalEmail: string) => {
-    setEmail(evalEmail);
-    setPassword('');
-    setErrorMessage(null);
-    setForgotPasswordNotice(false);
-  };
-
-  // TODO: Implementar fluxo completo de recuperação de senha via Supabase Auth (resetPasswordForEmail com SMTP personalizado)
-  const handleForgotPassword = () => {
-    setForgotPasswordNotice(true);
-  };
-
-  return (
-    <div className="min-h-screen bg-[#070C18] text-slate-100 flex flex-col justify-between selection:bg-cyan-500/30">
-      {/* Top bar back link */}
-      <header className="p-6 flex items-center justify-between">
-        <button
-          onClick={onNavigateHome}
-          className="flex items-center gap-2 group focus:outline-none"
-        >
-          <span className="font-editorial text-2xl font-bold text-white group-hover:text-cyan-400 transition">
-            VIPAZ
-          </span>
-          <span className="text-xs uppercase tracking-widest font-semibold text-cyan-400 font-sans border-l border-slate-700 pl-2">
-            Jurídico
-          </span>
-        </button>
-
-        <span className="text-[11px] font-mono-tech text-slate-500 flex items-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          Acesso Restrito B2B
-        </span>
-      </header>
-
-      {/* Main Login Card */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#0B1325] border border-slate-800/90 rounded-2xl p-8 shadow-2xl space-y-6">
-          <div className="space-y-1.5 text-center">
-            <h1 className="text-xl font-bold tracking-tight text-white font-sans">
-              Entre na sua plataforma.
-            </h1>
-            <p className="text-xs text-slate-400">
-              Produção jurídica de alta performance com IA contextual.
-            </p>
-          </div>
-
-          {errorMessage && (
-            <div className="flex items-start gap-2.5 p-3 bg-rose-950/40 border border-rose-500/30 rounded-lg text-xs text-rose-300 leading-relaxed">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {forgotPasswordNotice && (
-            <div className="p-3 bg-cyan-950/40 border border-cyan-500/30 rounded-lg text-xs text-cyan-300 space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold text-cyan-200">
-                <Info className="w-3.5 h-3.5" />
-                <span>Recuperação de Acesso:</span>
-              </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Por política de segurança deste ambiente corporativo, a redefinição de senha deve ser solicitada ao administrador de tecnologia da sua organização.
-              </p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-slate-300">
-                E-mail corporativo
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nome@escritorio.adv.br"
-                  className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-medium text-slate-300">
-                  Senha
-                </label>
-                {/* Visualmente disponível, identificada internamente como TODO e desabilitada sem simular falso sucesso */}
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-[11px] text-cyan-400 hover:text-cyan-300 transition"
-                  title="TODO: Recuperação de senha via Supabase Auth"
-                >
-                  Esqueci minha senha
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Informe sua senha"
-                  className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 font-mono-tech"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-0 focus:ring-offset-0"
-                />
-                <span>Manter conectado</span>
-              </label>
-
-              <span className="text-[11px] text-slate-500 font-mono-tech">
-                Supabase Auth RLS
-              </span>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold tracking-wider uppercase transition shadow-lg shadow-cyan-950/40 disabled:opacity-60 cursor-pointer"
-            >
-              {isLoading ? (
-                <span>Validando credenciais...</span>
-              ) : (
-                <>
-                  <span>ENTRAR</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Quick Demo profiles / Evaluation hint */}
-          <div className="pt-4 border-t border-slate-800 space-y-2.5">
-            <span className="text-[11px] font-mono-tech text-slate-400 uppercase tracking-wider block text-center">
-              ACESSOS HOMOLOGADOS PARA AVALIAÇÃO:
-            </span>
-
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => handleSelectEvaluationEmail('alexandre.castro@cawadvogados.com.br')}
-                className="w-full p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 text-left transition flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-200">
-                    Dr. Alexandre Castro (CAW Advogados)
-                  </div>
-                  <div className="text-[10px] text-cyan-400 font-mono-tech">
-                    alexandre.castro@cawadvogados.com.br
-                  </div>
-                </div>
-                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">
-                  Tenant 1
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectEvaluationEmail('roberto.siqueira@invicta.gov.br')}
-                className="w-full p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 hover:border-cyan-500/40 text-left transition flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-200">
-                    Dr. Roberto Siqueira (Invicta Gestão)
-                  </div>
-                  <div className="text-[10px] text-cyan-400 font-mono-tech">
-                    roberto.siqueira@invicta.gov.br
-                  </div>
-                </div>
-                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">
-                  Tenant 2
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer copyright */}
-      <footer className="p-6 text-center text-xs text-slate-500">
-        VIPAZ Jurídico • Tecnologia para potencializar a atuação profissional.
-      </footer>
-    </div>
-  );
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onNavigateHome, initialErrorMessage }) => {
+  const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState<string|null>(initialErrorMessage||null);
+  const submit=async(e:React.FormEvent)=>{e.preventDefault();if(!email.trim()||!password){setError('Informe e-mail e senha para continuar.');return;}setLoading(true);setError(null);try{const s=await authService.login(email,password);onLoginSuccess(s.organization.slug);}catch(err){setError(err instanceof AuthError?err.message:'Não foi possível autenticar. Verifique suas credenciais.');}finally{setLoading(false);}};
+  return <div className="min-h-screen bg-[#080b10] text-white grid lg:grid-cols-2">
+    <section className="hidden lg:flex p-12 xl:p-16 flex-col justify-between border-r border-white/[.07]">
+      <button onClick={onNavigateHome} className="w-fit font-editorial text-2xl font-bold">VIPAZ <span className="font-sans text-[11px] font-medium text-cyan-300">Jurídico</span></button>
+      <div className="max-w-lg"><div className="text-[11px] uppercase tracking-[.18em] text-cyan-300 mb-7">Workspace jurídico</div><h1 className="text-5xl xl:text-6xl leading-[.98] tracking-[-.05em] font-semibold">Estrutura para pensar.<br/><span className="text-white/30">Controle para produzir.</span></h1></div>
+      <div className="text-[11px] text-white/25">Ambiente profissional privado</div>
+    </section>
+    <section className="flex min-h-screen items-center justify-center p-6 sm:p-10">
+      <div className="w-full max-w-[420px]">
+        <button onClick={onNavigateHome} className="lg:hidden mb-12 inline-flex items-center gap-2 text-[12px] text-white/45"><ArrowLeft className="w-4 h-4"/>Voltar</button>
+        <div className="mb-10"><h2 className="text-3xl tracking-[-.035em] font-semibold">Bem-vindo.</h2><p className="mt-2 text-[13px] text-white/40">Acesse seu ambiente de trabalho.</p></div>
+        {error&&<div className="mb-5 flex gap-2 rounded-xl border border-red-400/20 bg-red-400/[.06] p-3 text-[12px] text-red-200"><AlertCircle className="w-4 h-4 shrink-0"/>{error}</div>}
+        <form onSubmit={submit} className="space-y-5">
+          <label className="block"><span className="mb-2 block text-[11px] text-white/45">E-mail</span><input autoComplete="email" type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full h-12 rounded-xl border border-white/10 bg-white/[.035] px-4 text-[13px] outline-none focus:border-cyan-300/60 transition" placeholder="nome@escritorio.com.br"/></label>
+          <label className="block"><span className="mb-2 block text-[11px] text-white/45">Senha</span><input autoComplete="current-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full h-12 rounded-xl border border-white/10 bg-white/[.035] px-4 text-[13px] outline-none focus:border-cyan-300/60 transition" placeholder="Sua senha"/></label>
+          <button disabled={loading} className="w-full h-12 rounded-xl bg-white text-black text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50">{loading?'Entrando…':<>Entrar <ArrowRight className="w-4 h-4"/></>}</button>
+        </form>
+        <p className="mt-7 text-center text-[10px] leading-5 text-white/25">Acesso destinado a usuários autorizados.</p>
+      </div>
+    </section>
+  </div>;
 };

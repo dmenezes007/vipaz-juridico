@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Organization, Profile } from '../types';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -15,37 +15,22 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children,
-  currentPath,
-  onNavigate,
-  organization,
-  user,
-  onLogout,
-  onSwitchTenant,
+  children, currentPath, onNavigate, organization, user, onLogout, onSwitchTenant,
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('vipaz_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try { return localStorage.getItem('vipaz_sidebar_collapsed') === 'true'; } catch { return false; }
   });
 
-  const handleToggleCollapse = () => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('vipaz_sidebar_collapsed', String(next));
-      } catch {}
-      return next;
-    });
-  };
+  const toggleCollapse = () => setIsCollapsed(prev => {
+    const next = !prev;
+    try { localStorage.setItem('vipaz_sidebar_collapsed', String(next)); } catch {}
+    return next;
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070C18] text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row transition-colors">
-      {/* Sidebar Navigation */}
+    <div className="vipaz-app min-h-screen flex">
       <Sidebar
         currentPath={currentPath}
         onNavigate={onNavigate}
@@ -56,24 +41,21 @@ export const AppShell: React.FC<AppShellProps> = ({
         isOpenMobile={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
         isCollapsed={isCollapsed}
-        onToggleCollapse={handleToggleCollapse}
+        onToggleCollapse={toggleCollapse}
       />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="min-w-0 flex-1 flex flex-col">
         <Topbar
           organization={organization}
           user={user}
           onOpenTenantSwitcher={() => setIsTenantModalOpen(true)}
-          onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
+          onToggleMobileMenu={() => setIsMobileOpen(v => !v)}
         />
-
-        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
-          {children}
+        <main className="flex-1 w-full">
+          <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-7 sm:py-8 lg:px-10 lg:py-10">
+            {children}
+          </div>
         </main>
       </div>
-
-      {/* Multi-Tenant Switcher Modal */}
       {isTenantModalOpen && (
         <TenantSwitcherModal
           currentOrg={organization}
