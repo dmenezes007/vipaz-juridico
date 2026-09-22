@@ -725,3 +725,38 @@
 .vipaz-page-title { font-size: clamp(1.65rem, 2.5vw, 2.25rem); line-height: 1.08; letter-spacing: -.035em; font-weight: 650; }
 .vipaz-page-description { margin-top: .5rem; max-width: 42rem; color: var(--text-muted); font-size: .8125rem; line-height: 1.55; }
 .vipaz-section { border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; }
+
+
+/* Production workspace — clean presentation without exposing implementation */
+.vipaz-production > div:first-child { border-color: var(--border-subtle) !important; }
+.vipaz-production form > div[class*="bg-[#0B1325]"] {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  box-shadow: none !important;
+}
+.vipaz-production form input,
+.vipaz-production form select,
+.vipaz-production form textarea {
+  background: var(--bg-surface-subtle) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+.vipaz-production form label,
+.vipaz-production form h3 { color: var(--text-secondary) !important; }
+.vipaz-production form h3 { letter-spacing: .035em !important; }
+.vipaz-production form [class*="bg-slate-900/60"],
+.vipaz-production form [class*="bg-slate-900"] {
+  background: var(--bg-surface-subtle) !important;
+  border-color: var(--border-subtle) !important;
+}
+.vipaz-production form [class*="text-slate-200"] { color: var(--text-primary) !important; }
+.vipaz-production form [class*="text-slate-400"],
+.vipaz-production form [class*="text-slate-500"] { color: var(--text-muted) !important; }
+.vipaz-production #persisted-snapshot-confirmation {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-primary) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.vipaz-production #persisted-snapshot-confirmation h3,
+.vipaz-production #caw-docx-result [class*="text-white"] { color: var(--text-primary) !important; }
