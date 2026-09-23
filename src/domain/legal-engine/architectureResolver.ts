@@ -200,8 +200,9 @@ export function buildVariableMap(
 ): Record<string, string> {
   const ufInfo = getUfDerivations(formData.uf);
   const dataExtenso = formatDataExtenso();
-  const regionalPart = formData.court_regional?.trim()
-    ? formData.court_regional.trim().toUpperCase()
+  const regionalRaw = formData.court_regional?.trim().toUpperCase() || '';
+  const regionalPart = regionalRaw
+    ? (/^(FORO|SUBSEÇÃO|REGIONAL)/.test(regionalRaw) ? regionalRaw : `FORO REGIONAL ${regionalRaw}`)
     : '';
 
   const juizoArtigo = formData.court_type === 'Vara Cível' ? 'DA' : formData.court_type === 'Juizado Especial Cível' ? 'DO' : '';
