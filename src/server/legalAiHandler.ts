@@ -52,8 +52,16 @@ CAMPO: ${field}
 INSTRUÇÃO ESPECÍFICA: ${guidance}`;
 }
 
+function getRequestHeader(req:Request, name:string): string {
+  const headers = (req as any)?.headers || {};
+  const value = headers[name.toLowerCase()] ?? headers[name] ?? '';
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
 function getAuthenticatedSupabase(req:Request) {
-  const auth = req.header('authorization') || '';
+  // Vercel Functions não garantem os helpers do Express (req.header/get).
+  // Lemos diretamente o objeto de headers, compatível com Express e Vercel.
+  const auth = getRequestHeader(req, 'authorization');
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const anon = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
