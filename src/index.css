@@ -791,3 +791,32 @@
 .vipaz-ai-button:hover:not(:disabled) { border-color:var(--primary-main); background:var(--primary-subtle); }
 .vipaz-ai-button:disabled { opacity:.55; cursor:not-allowed; }
 .vipaz-ai-badge { display:inline-flex; align-items:center; gap:.35rem; border:1px solid var(--border-default); background:var(--primary-subtle); color:var(--primary-main); border-radius:999px; padding:.35rem .6rem; font-size:.625rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+
+
+/* Nova Peça — contrast and responsive status badges */
+.vipaz-production button .whitespace-nowrap { white-space: nowrap; }
+:root:not(.dark) .vipaz-production button[class*="bg-slate-800"] { color: #FFFFFF !important; }
+:root:not(.dark) .vipaz-production button[class*="bg-slate-800"] span { color: inherit !important; }
+
+/* Mapa da Peça — semantic surface in both themes */
+.vipaz-map-modal > div { background: var(--bg-surface) !important; border-color: var(--border-default) !important; color: var(--text-primary) !important; }
+.vipaz-map-modal [class*="bg-[#0F172A]"],
+.vipaz-map-modal [class*="bg-[#080D1A]"],
+.vipaz-map-modal [class*="bg-[#0B1120]"],
+.vipaz-map-modal [class*="bg-black/40"] { background: var(--bg-surface-subtle) !important; }
+.vipaz-map-modal [class*="border-slate-8"],
+.vipaz-map-modal [class*="border-slate-9"],
+.vipaz-map-modal [class*="border-slate-7"] { border-color: var(--border-default) !important; }
+.vipaz-map-modal .text-white,
+.vipaz-map-modal .text-slate-200,
+.vipaz-map-modal .text-slate-300 { color: var(--text-primary) !important; }
+.vipaz-map-modal .text-slate-400,
+.vipaz-map-modal .text-slate-500 { color: var(--text-muted) !important; }
+:root:not(.dark) .vipaz-map-modal .text-cyan-300,
+:root:not(.dark) .vipaz-map-modal .text-cyan-400 { color: #087B9D !important; }
+:root:not(.dark) .vipaz-map-modal .text-emerald-300,
+:root:not(.dark) .vipaz-map-modal .text-emerald-400 { color: #067647 !important; }
+:root:not(.dark) .vipaz-map-modal .text-amber-300,
+:root:not(.dark) .vipaz-map-modal .text-amber-400 { color: #92400E !important; }
+:root:not(.dark) .vipaz-map-modal .text-rose-300,
+:root:not(.dark) .vipaz-map-modal .text-rose-400 { color: #B42318 !important; }
