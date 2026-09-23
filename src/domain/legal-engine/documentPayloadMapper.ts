@@ -208,6 +208,7 @@ export function resolveTerritorialEnderecamento(params: {
   courtType?: string;
   courtNumber?: string;
   courtRegional?: string;
+  courtTypeCustom?: string;
   district?: string;
   uf?: string;
 }): string {
@@ -219,10 +220,11 @@ export function resolveTerritorialEnderecamento(params: {
 
   const courtType = (params.courtType || 'Vara Cível').trim();
   const isJec = courtType.toLowerCase().includes('juizado');
+  const isOther = courtType === 'Outro';
   const courtNum = (params.courtNumber || '').trim();
 
   const regionalPart = params.courtRegional?.trim()
-    ? ` REGIONAL ${params.courtRegional.trim().toUpperCase()}`
+    ? ` ${params.courtRegional.trim().toUpperCase()}`
     : '';
 
   const rawDistrict = (params.district || 'CAPITAL').trim().toUpperCase();
@@ -231,6 +233,11 @@ export function resolveTerritorialEnderecamento(params: {
     comarcaStr = 'DA CAPITAL';
   } else if (!rawDistrict.startsWith('DE ') && !rawDistrict.startsWith('DA ') && !rawDistrict.startsWith('DO ')) {
     comarcaStr = `DE ${rawDistrict}`;
+  }
+
+  if (isOther) {
+    const custom = String((params as any).courtTypeCustom || '').trim().toUpperCase();
+    return `DOUTO JUÍZO ${custom}${regionalPart} DA COMARCA ${comarcaStr} ${estadoExpr}`.replace(/\s+/g, ' ').trim();
   }
 
   if (isJec) {
@@ -417,10 +424,13 @@ export function buildCawDocxPayload(params: DocumentPayloadMapperParams): CawDoc
   // ====================================================================
 
   // 1. Processo semântico
+  const regionalLabel = formData.court_regional ? ' ' + String(formData.court_regional).trim() : '';
   const orgaoJulgador = formData.court_type
     ? (formData.court_type === 'Juizado Especial Cível'
-        ? `${formData.court_number || ''}º Juizado Especial Cível${formData.court_regional ? ' Regional ' + formData.court_regional : ''}`.trim()
-        : `${formData.court_number || ''}ª Vara Cível${formData.court_regional ? ' Regional ' + formData.court_regional : ''}`.trim())
+        ? `${formData.court_number || ''}º Juizado Especial Cível${regionalLabel}`.trim()
+        : formData.court_type === 'Vara Cível'
+          ? `${formData.court_number || ''}ª Vara Cível${regionalLabel}`.trim()
+          : `${formData.court_type_custom || ''}${regionalLabel}`.trim())
     : court;
 
   const processo = {
@@ -435,6 +445,7 @@ export function buildCawDocxPayload(params: DocumentPayloadMapperParams): CawDoc
     courtType: formData.court_type,
     courtNumber: formData.court_number,
     courtRegional: formData.court_regional,
+    courtTypeCustom: formData.court_type_custom,
     district,
     uf,
   });
