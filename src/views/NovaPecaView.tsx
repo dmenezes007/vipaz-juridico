@@ -55,6 +55,7 @@ import {
   HOMOLOGATED_CASE_DEFAULTS,
 } from '../domain/legal-engine/formDefinitions';
 import { isPieceHomologated } from '../domain/legal-engine/architectureRegistry';
+import { agravoAiService, AgravoAiField } from '../services/agravoAiService';
 
 interface NovaPecaViewProps {
   organization: Organization;
@@ -114,6 +115,8 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     linked_requests_count: number;
   } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [generatingAiField, setGeneratingAiField] = useState<AgravoAiField | null>(null);
+  const [aiFieldError, setAiFieldError] = useState<string | null>(null);
 
   // Estados da Fase 4: Geração Experimental do DOCX Determinístico
   const [isGeneratingDocx, setIsGeneratingDocx] = useState(false);
@@ -126,6 +129,42 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
   const [cawDocxStepMessage, setCawDocxStepMessage] = useState<string>('');
   const [cawDocxResult, setCawDocxResult] = useState<CawDocxGenerationResult | null>(null);
   const [cawDocxError, setCawDocxError] = useState<string | null>(null);
+
+  const isAgravo = formData.document_piece === 'Agravo de Instrumento';
+  const countersecurityAllowed = Boolean(
+    formData.dispute_objects.reajuste_anual ||
+    formData.dispute_objects.reajuste_etario ||
+    formData.appeal_specific_instructions?.toLowerCase().includes('contracautela')
+  );
+
+  const handleGenerateAiField = async (field: AgravoAiField) => {
+    if (generatingAiField) return;
+    setGeneratingAiField(field);
+    setAiFieldError(null);
+    try {
+      const content = await agravoAiService.generate(field, {
+        process_number: formData.process_number,
+        tribunal: formData.uf,
+        juizo_origem: [formData.court_number, formData.court_type, formData.district, formData.uf].filter(Boolean).join(' · '),
+        agravante: formData.client,
+        agravado: formData.opposing_party,
+        tipo_demanda: formData.appeal_demand_type,
+        objeto_demanda: formData.appeal_main_object,
+        decisao_agravada: formData.appealed_decision,
+        peticao_inicial: formData.appeal_initial_claim,
+        documentos_relevantes: formData.appeal_relevant_documents,
+        documentacao_contratual: formData.appeal_contractual_documents,
+        historico_processual: formData.appeal_procedural_history,
+        instrucoes_especificas: formData.appeal_specific_instructions,
+        countersecurity_allowed: countersecurityAllowed,
+      });
+      updateField(field as keyof LegalFormData, content as never);
+    } catch (err) {
+      setAiFieldError(err instanceof Error ? err.message : 'Não foi possível gerar o texto.');
+    } finally {
+      setGeneratingAiField(null);
+    }
+  };
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard?.writeText(text);
@@ -586,6 +625,69 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        {/* SEÇÃO 01: TIPO DE PEÇA PROCESSUAL */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                03
+              </span>
+              <span>Tipo de Peça Processual</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">
+              {isCurrentPieceHomologated ? 'Homologada para Geração' : 'Em Desenvolvimento'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {DOCUMENT_PIECES_CATALOG.map((piece) => {
+              const isSelected = formData.document_piece === piece.id;
+              return (
+                <button
+                  key={piece.id}
+                  type="button"
+                  onClick={() => updateField('document_piece', piece.id)}
+                  className={`p-4 rounded-xl border text-left transition flex flex-col justify-between gap-2.5 ${
+                    isSelected
+                      ? 'bg-cyan-500/15 border-cyan-500/60 ring-1 ring-cyan-500/40'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-100">{piece.label}</span>
+                    <span
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
+                        piece.isHomologated
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}
+                    >
+                      {piece.isHomologated ? 'Homologada' : 'Em Dev'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">{piece.description}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {!isCurrentPieceHomologated && (
+            <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-200 flex items-start gap-3">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-300">
+                  Arquitetura ainda não homologada no MVP
+                </p>
+                <p className="text-[11px] text-amber-200/80 mt-0.5">
+                  A peça processual selecionada (<strong>{formData.document_piece}</strong>) está em fase de modelagem de regras.
+                  Para prosseguir com a montagem determinística e download do DOCX, selecione <strong>Contestação</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+
         {clientErrors.submit && (
           <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-3">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -593,7 +695,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         )}
 
-        {/* SEÇÃO 01: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
+        {/* SEÇÃO 02: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
@@ -730,7 +832,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {/* SEÇÃO 02: PARTES & NATUREZA */}
+        {/* SEÇÃO 03: PARTES & NATUREZA */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
@@ -812,68 +914,6 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </p>
             )}
           </div>
-        </div>
-
-        {/* SEÇÃO 03: TIPO DE PEÇA PROCESSUAL */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                03
-              </span>
-              <span>Tipo de Peça Processual</span>
-            </h3>
-            <span className="text-[11px] text-cyan-400 font-mono">
-              {isCurrentPieceHomologated ? 'Homologada para Geração' : 'Em Desenvolvimento'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {DOCUMENT_PIECES_CATALOG.map((piece) => {
-              const isSelected = formData.document_piece === piece.id;
-              return (
-                <button
-                  key={piece.id}
-                  type="button"
-                  onClick={() => updateField('document_piece', piece.id)}
-                  className={`p-4 rounded-xl border text-left transition flex flex-col justify-between gap-2.5 ${
-                    isSelected
-                      ? 'bg-cyan-500/15 border-cyan-500/60 ring-1 ring-cyan-500/40'
-                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-100">{piece.label}</span>
-                    <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
-                        piece.isHomologated
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {piece.isHomologated ? 'Homologada' : 'Em Dev'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">{piece.description}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          {!isCurrentPieceHomologated && (
-            <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-200 flex items-start gap-3">
-              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-              <div>
-                <p className="font-semibold text-amber-300">
-                  Arquitetura ainda não homologada no MVP
-                </p>
-                <p className="text-[11px] text-amber-200/80 mt-0.5">
-                  A peça processual selecionada (<strong>{formData.document_piece}</strong>) está em fase de modelagem de regras.
-                  Para prosseguir com a montagem determinística e download do DOCX, selecione <strong>Contestação</strong>.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* SEÇÃO 04: OBJETO DA LIDE (CLASSIFICAÇÃO ESTRUTURADA) */}
@@ -1125,7 +1165,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {/* SEÇÃO 05: SÍNTESE E DELIMITAÇÃO */}
+        {formData.document_piece === 'Contestação' && (<>\n        {/* SEÇÃO 05: SÍNTESE E DELIMITAÇÃO */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
@@ -1507,6 +1547,57 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             </div>
           </div>
         </div>
+
+\n        </>)}\n\n        {isAgravo && (
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl vipaz-card space-y-5">
+              <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-[var(--bg-surface-subtle)] vipaz-text-brand flex items-center justify-center font-mono text-[10px]">05</span>
+                  <span>Contexto do Agravo de Instrumento</span>
+                </h3>
+                <span className="text-[11px] vipaz-text-muted">Base para assistência por IA</span>
+              </div>
+              <p className="text-[11px] leading-5 vipaz-text-muted">Informe somente fatos e documentos efetivamente existentes nos autos. A IA utilizará este contexto para preencher os tópicos editáveis e nunca deverá completar lacunas factuais por inferência.</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                {[
+                  ['appeal_demand_type','TIPO DE DEMANDA','Ex.: ação declaratória de nulidade de reajustes contratuais'],
+                  ['appeal_main_object','OBJETO PRINCIPAL DA DEMANDA','Descreva o objeto principal discutido na origem'],
+                ].map(([field,label,placeholder])=><div key={field}><label className="vipaz-field-label">{label}</label><textarea rows={3} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} placeholder={placeholder} className="vipaz-input min-h-[88px] resize-y"/></div>)}
+              </div>
+              {[
+                ['appealed_decision','DECISÃO AGRAVADA','Transcreva ou sintetize fielmente a decisão, incluindo obrigações, prazo, multa e dispositivo quando existentes.'],
+                ['appeal_initial_claim','PETIÇÃO INICIAL / PRETENSÃO DA PARTE AUTORA','Registre as alegações e pedidos relevantes para o recurso.'],
+                ['appeal_relevant_documents','DOCUMENTOS PROCESSUAIS RELEVANTES','Identifique os documentos que podem ser efetivamente utilizados na fundamentação.'],
+                ['appeal_contractual_documents','CONTRATO / DOCUMENTAÇÃO TÉCNICA','Informe cláusulas, condições gerais, estudos, memória de cálculo ou documentação técnica efetivamente disponível.'],
+                ['appeal_procedural_history','HISTÓRICO PROCESSUAL RELEVANTE','Registre apenas os eventos processuais necessários à compreensão do recurso.'],
+                ['appeal_specific_instructions','INSTRUÇÕES ESPECÍFICAS DO CASO','Orientações adicionais. A menção expressa a contracautela também autoriza o tópico subsidiário.'],
+              ].map(([field,label,placeholder])=><div key={field}><label className="vipaz-field-label">{label}</label><textarea rows={3} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} placeholder={placeholder} className="vipaz-input min-h-[92px] resize-y"/></div>)}
+            </div>
+
+            <div className="p-6 rounded-2xl vipaz-card space-y-5">
+              <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+                <div><h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary">Conteúdo assistido por IA</h3><p className="mt-1 text-[11px] vipaz-text-muted">Gere cada tópico, leia e edite antes da produção final.</p></div>
+                <span className="vipaz-ai-badge"><Sparkles className="w-3 h-3"/>IA assistida</span>
+              </div>
+              {aiFieldError && <div className="p-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs">{aiFieldError}</div>}
+              {([
+                ['executive_summary','EMENTA EXECUTIVA'],
+                ['claim_summary','1. DO OBJETO DO RECURSO E SÍNTESE DA CONTROVÉRSIA'],
+                ['appeal_effect_suspensive','2. DA NECESSIDADE DE CONCESSÃO DE EFEITO SUSPENSIVO'],
+                ['appeal_mistaken_premise','3. DA PREMISSA EQUIVOCADA DA DECISÃO RECORRIDA'],
+                ['appeal_fumus','4. DA INCONTESTÁVEL VEROSSIMILHANÇA OU PROBABILIDADE DO DIREITO (FUMUS BONI IURIS)'],
+                ['appeal_periculum','5. DO IMINENTE RISCO DE DANO GRAVE E DE DIFÍCIL REPARAÇÃO (PERICULUM IN MORA)'],
+                ...(countersecurityAllowed ? [['appeal_countersecurity','6. DO REQUERIMENTO SUBSIDIÁRIO DE CONTRACAUTELA CIVIL (ART. 300, § 1º, CPC)']] : []),
+                ['appeal_final_requests','DOS REQUERIMENTOS FINAIS'],
+              ] as [AgravoAiField,string][]).map(([field,label])=><div key={field} className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2"><label className="vipaz-field-label mb-0">{label}</label><button type="button" onClick={()=>handleGenerateAiField(field)} disabled={Boolean(generatingAiField)} className="vipaz-ai-button">{generatingAiField===field?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}{generatingAiField===field?'Gerando…':String(formData[field as keyof LegalFormData]||'').trim()?'Gerar novamente com IA':'Gerar com IA'}</button></div>
+                <textarea rows={field==='executive_summary'?6:10} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} className="vipaz-input resize-y leading-6" placeholder="O texto gerado aparecerá aqui e permanecerá totalmente editável."/>
+              </div>)}
+              {!countersecurityAllowed && <p className="text-[11px] vipaz-text-muted border-t vipaz-border-subtle pt-4">O tópico de contracautela e o pedido subsidiário correspondente permanecem omitidos. Eles serão habilitados quando o objeto envolver reajuste ou houver autorização expressa nas instruções específicas.</p>}
+            </div>
+          </div>
+        )}
 
         {/* SEÇÃO 08: ANEXO DOS AUTOS PROCESSUAIS */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
