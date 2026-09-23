@@ -119,6 +119,7 @@ export async function handleLegalAiField(req:Request,res:Response) {
         system_instruction:buildSystemInstruction(field, context?.document_piece),
         context,
         source_pdf: sourcePdfForWorkflow,
+        source_pdf_mode: 'signed_url',
       })
     });
     if(!response.ok){const body=await response.text(); console.error('[VIPAZ][LegalAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
