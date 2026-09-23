@@ -57,30 +57,30 @@ async function validateSession(req:Request) {
 export async function handleAgravoAiField(req:Request,res:Response) {
   try {
     if (!(await validateSession(req))) return res.status(401).json({error:'Sessão inválida ou expirada.'});
-    const apiKey=process.env.OPENAI_API_KEY;
-    if(!apiKey) return res.status(503).json({error:'Assistência por IA ainda não configurada no servidor.'});
-    const {field,context}=req.body||{};
+    const webhookUrl=process.env.AGRAVO_AI_N8N_WEBHOOK_URL;
+    if(!webhookUrl) return res.status(503).json({error:'Workflow de IA do Agravo ainda não configurado no servidor.'});
+
+    const {field,context,source_pdf}=req.body||{};
     if(!ALLOWED_FIELDS.has(field)) return res.status(400).json({error:'Campo de Agravo não autorizado para geração assistida.'});
+    if(!source_pdf?.base64 || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
     if(field==='appeal_countersecurity' && !context?.countersecurity_allowed) return res.status(400).json({error:'Contracautela não autorizada pelas regras do caso.'});
 
-    const response=await fetch('https://api.openai.com/v1/responses',{
+    const response=await fetch(webhookUrl,{
       method:'POST',
-      headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','X-VIPAZ-Secret':process.env.AGRAVO_AI_N8N_SECRET||''},
       body:JSON.stringify({
-        model:process.env.OPENAI_MODEL || 'gpt-5.6-terra',
-        reasoning:{effort:'medium'},
-        input:[
-          {role:'system',content:[{type:'input_text',text:buildSystemInstruction(field)}]},
-          {role:'user',content:[{type:'input_text',text:JSON.stringify(context)}]},
-        ],
-        text:{format:{type:'json_schema',name:'agravo_field',strict:true,schema:{type:'object',properties:{content:{type:'string'}},required:['content'],additionalProperties:false}}}
+        task:'generate_agravo_field',
+        field,
+        field_guidance:FIELD_GUIDANCE[field],
+        system_instruction:buildSystemInstruction(field),
+        context,
+        source_pdf,
       })
     });
-    if(!response.ok){const body=await response.text(); console.error('[VIPAZ][AgravoAI]',response.status,body); return res.status(502).json({error:'Falha na geração assistida. Tente novamente.'});}
+    if(!response.ok){const body=await response.text(); console.error('[VIPAZ][AgravoAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
     const data:any=await response.json();
-    const raw=data.output?.flatMap((o:any)=>o.content||[]).find((c:any)=>c.type==='output_text')?.text;
-    if(!raw) return res.status(502).json({error:'A IA não retornou conteúdo utilizável.'});
-    const parsed=JSON.parse(raw);
-    return res.json({content:String(parsed.content||'').trim()});
+    const content=String(data?.content||data?.text||data?.output||'').trim();
+    if(!content) return res.status(502).json({error:'O workflow não retornou conteúdo utilizável.'});
+    return res.json({content});
   } catch(error){console.error('[VIPAZ][AgravoAI] erro:',error); return res.status(500).json({error:'Não foi possível concluir a assistência por IA.'});}
 }

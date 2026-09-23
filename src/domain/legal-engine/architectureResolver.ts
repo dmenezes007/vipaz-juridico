@@ -164,9 +164,13 @@ export function buildEvaluationContext(formData: LegalFormData): Record<string, 
 
   const ufInfo = getUfDerivations(formData.uf);
 
-  const juizoArtigo = formData.court_type === 'Vara Cível' ? 'DA' : 'DO';
-  const juizoSuffix =
-    formData.court_type === 'Vara Cível' ? 'ª VARA CÍVEL' : 'º JUIZADO ESPECIAL CÍVEL';
+  const isOtherCourt = formData.court_type === 'Outro';
+  const juizoArtigo = formData.court_type === 'Vara Cível' ? 'DA' : formData.court_type === 'Juizado Especial Cível' ? 'DO' : '';
+  const juizoSuffix = formData.court_type === 'Vara Cível'
+    ? 'ª VARA CÍVEL'
+    : formData.court_type === 'Juizado Especial Cível'
+      ? 'º JUIZADO ESPECIAL CÍVEL'
+      : (formData.court_type_custom || '').trim().toUpperCase();
 
   return {
     ...formData,
@@ -196,13 +200,17 @@ export function buildVariableMap(
 ): Record<string, string> {
   const ufInfo = getUfDerivations(formData.uf);
   const dataExtenso = formatDataExtenso();
-  const regionalPart = formData.court_regional?.trim()
-    ? `REGIONAL ${formData.court_regional.trim().toUpperCase()}`
+  const regionalRaw = formData.court_regional?.trim().toUpperCase() || '';
+  const regionalPart = regionalRaw
+    ? (/^(FORO|SUBSEÇÃO|REGIONAL)/.test(regionalRaw) ? regionalRaw : `FORO REGIONAL ${regionalRaw}`)
     : '';
 
-  const juizoArtigo = formData.court_type === 'Vara Cível' ? 'DA' : 'DO';
-  const juizoSuffix =
-    formData.court_type === 'Vara Cível' ? 'ª VARA CÍVEL' : 'º JUIZADO ESPECIAL CÍVEL';
+  const juizoArtigo = formData.court_type === 'Vara Cível' ? 'DA' : formData.court_type === 'Juizado Especial Cível' ? 'DO' : '';
+  const juizoSuffix = formData.court_type === 'Vara Cível'
+    ? 'ª VARA CÍVEL'
+    : formData.court_type === 'Juizado Especial Cível'
+      ? 'º JUIZADO ESPECIAL CÍVEL'
+      : (formData.court_type_custom || '').trim().toUpperCase();
 
   const cidadeEstadoData = `${ufInfo.cidadeDefault}, ${dataExtenso}.`;
 
