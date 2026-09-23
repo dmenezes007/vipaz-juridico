@@ -1327,7 +1327,6 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </div>
             </div>
           </div>
-        </div>/div>
         </div>
 
         {/* SEÇÃO 08: PRELIMINARES & PREJUDICIAIS */}
