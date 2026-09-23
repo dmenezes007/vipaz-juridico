@@ -146,6 +146,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     setAiFieldError(null);
     try {
       const content = await agravoAiService.generate(field, {
+        document_piece: formData.document_piece,
         process_number: formData.process_number,
         tribunal: formData.uf,
         juizo_origem: [formData.court_number, formData.court_type, formData.district, formData.uf].filter(Boolean).join(' · '),
@@ -160,6 +161,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         historico_processual: formData.appeal_procedural_history,
         instrucoes_especificas: formData.appeal_specific_instructions,
         countersecurity_allowed: countersecurityAllowed,
+        dispute_objects: formData.dispute_objects,
+        injunction_status: formData.injunction_status,
+        moral_damages_status: formData.moral_damages_status,
+        repetition_status: formData.repetition_status,
       }, selectedFile.fileObj);
       updateField(field as keyof LegalFormData, content as never);
     } catch (err) {
