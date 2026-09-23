@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import 'dotenv/config';
 import { handleGenerateDocx } from './src/server/generateDocxHandler';
+import { handleAgravoAiField } from './src/server/agravoAiHandler';
 
 const PORT = 3000;
 const HOST = '0.0.0.0';
@@ -25,6 +26,11 @@ async function startServer() {
       version: '1.0.0',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // Assistência por IA para campos editáveis do Agravo de Instrumento
+  app.post('/api/ai/agravo-field', (req, res) => {
+    handleAgravoAiField(req, res);
   });
 
   // Endpoint seguro de geração DOCX via motor CAW (n8n / Carbone)

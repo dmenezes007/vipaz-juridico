@@ -20,7 +20,7 @@ export const DOCUMENT_PIECES_CATALOG: DocumentPieceMetadata[] = [
   {
     id: 'Agravo de Instrumento',
     label: 'Agravo de Instrumento',
-    description: 'Recurso contra decisões interlocutórias que versarem sobre tutelas provisórias.',
+    description: 'Recurso contra decisão interlocutória, com fundamentação individualizada e assistência de IA para os tópicos variáveis.',
     isHomologated: false,
     stage: 'in_development',
   },
