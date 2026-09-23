@@ -147,6 +147,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     try {
       const content = await legalAiService.generate(field, {
         document_piece: formData.document_piece,
+        organization_id: organization.id,
         process_number: formData.process_number,
         tribunal: formData.uf,
         juizo_origem: [formData.court_number, formData.court_type, formData.district, formData.uf].filter(Boolean).join(' · '),

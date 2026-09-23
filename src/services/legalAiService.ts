@@ -102,18 +102,6 @@ export const legalAiService={
    // a Vercel Function e sem expor qualquer chave privilegiada no navegador.
    await uploadPdfResumable(sourcePdf, storagePath, session.access_token);
 
-   const { data: signedData, error: signedError } = await supabase.storage
-     .from('source-documents')
-     .createSignedUrl(storagePath, 600);
-   if(signedError || !signedData?.signedUrl) {
-     console.error('[VIPAZ][LegalAI][Storage][SignedURL]', signedError);
-     throw new Error(
-       signedError?.message
-         ? `Não foi possível criar acesso temporário aos autos: ${signedError.message}`
-         : 'Não foi possível criar acesso temporário aos autos para a geração assistida.'
-     );
-   }
-
    const response=await fetch('/api/ai/legal-field',{
      method:'POST',
      headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},
@@ -123,7 +111,6 @@ export const legalAiService={
        source_pdf:{
          name:sourcePdf.name,
          mime_type:'application/pdf',
-         signed_url:signedData.signedUrl,
          storage_path:storagePath,
        }
      })

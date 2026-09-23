@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 
 const ALLOWED_FIELDS = new Set([
   'executive_summary',
@@ -51,14 +52,28 @@ CAMPO: ${field}
 INSTRUÇÃO ESPECÍFICA: ${guidance}`;
 }
 
-async function validateSession(req:Request) {
+function getAuthenticatedSupabase(req:Request) {
   const auth = req.header('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  const url = process.env.VITE_SUPABASE_URL || '';
-  const anon = process.env.VITE_SUPABASE_ANON_KEY || '';
-  if (!token || !url || !anon) return false;
-  const response = await fetch(`${url}/auth/v1/user`, {headers:{Authorization:`Bearer ${token}`,apikey:anon}});
-  return response.ok;
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const anon = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  if (!token || !url || !anon) return null;
+  return createClient(url, anon, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function validateSession(req:Request) {
+  const client = getAuthenticatedSupabase(req);
+  if (!client) return false;
+  const { data, error } = await client.auth.getUser();
+  return !error && Boolean(data.user);
+}
+
+function isStoragePathAllowed(storagePath:string, organizationId:unknown) {
+  if (!organizationId || typeof organizationId !== 'string') return false;
+  return storagePath.startsWith(`${organizationId}/ai/`) && !storagePath.includes('..');
 }
 
 export async function handleLegalAiField(req:Request,res:Response) {
@@ -69,22 +84,26 @@ export async function handleLegalAiField(req:Request,res:Response) {
 
     const {field,context,source_pdf}=req.body||{};
     if(!ALLOWED_FIELDS.has(field)) return res.status(400).json({error:'Campo não autorizado para geração assistida.'});
-    if(!source_pdf?.signed_url || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
+    if(!source_pdf?.storage_path || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
+    if(!isStoragePathAllowed(source_pdf.storage_path, context?.organization_id)) return res.status(403).json({error:'Caminho dos autos não autorizado para esta organização.'});
 
-    // O cliente envia somente uma URL assinada curta. O backend recupera o PDF
-    // do Storage privado e o encaminha ao n8n, evitando o limite de 4,5 MB de
-    // entrada das Vercel Functions para PDFs processuais de maior porte.
-    const pdfResponse = await fetch(source_pdf.signed_url);
-    if(!pdfResponse.ok) return res.status(502).json({error:'Não foi possível recuperar os autos armazenados para a geração assistida.'});
-    const contentType = pdfResponse.headers.get('content-type') || '';
-    if(!contentType.toLowerCase().includes('application/pdf')) return res.status(400).json({error:'O arquivo armazenado não foi reconhecido como PDF.'});
-    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
-    if(!pdfBuffer.length) return res.status(400).json({error:'O PDF armazenado está vazio.'});
-    if(pdfBuffer.length > 30 * 1024 * 1024) return res.status(413).json({error:'O PDF excede o limite de 30 MB para geração assistida.'});
+    // A URL assinada deixa de ser criada no navegador. Após validar a sessão,
+    // o backend cria um acesso temporário ao objeto privado e envia somente essa
+    // referência ao n8n. O PDF não atravessa a Vercel nem é convertido em Base64.
+    const storageClient = getAuthenticatedSupabase(req);
+    if(!storageClient) return res.status(401).json({error:'Sessão inválida ou expirada.'});
+    const { data: signedData, error: signedError } = await storageClient.storage
+      .from('source-documents')
+      .createSignedUrl(source_pdf.storage_path, 600);
+    if(signedError || !signedData?.signedUrl) {
+      console.error('[VIPAZ][LegalAI][Storage][SignedURL]', signedError);
+      return res.status(502).json({error:'Não foi possível autorizar o acesso temporário aos autos armazenados.'});
+    }
     const sourcePdfForWorkflow = {
       name: source_pdf.name || 'autos.pdf',
       mime_type: 'application/pdf',
-      base64: pdfBuffer.toString('base64'),
+      storage_path: source_pdf.storage_path,
+      signed_url: signedData.signedUrl,
     };
     if(field==='appeal_countersecurity' && !context?.countersecurity_allowed) return res.status(400).json({error:'Contracautela não autorizada pelas regras do caso.'});
 
@@ -100,6 +119,7 @@ export async function handleLegalAiField(req:Request,res:Response) {
         system_instruction:buildSystemInstruction(field, context?.document_piece),
         context,
         source_pdf: sourcePdfForWorkflow,
+        source_pdf_mode: 'signed_url',
       })
     });
     if(!response.ok){const body=await response.text(); console.error('[VIPAZ][LegalAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
