@@ -760,3 +760,34 @@
 }
 .vipaz-production #persisted-snapshot-confirmation h3,
 .vipaz-production #caw-docx-result [class*="text-white"] { color: var(--text-primary) !important; }
+
+
+/* Accessibility — minimum contrast for legacy Tailwind utilities in light mode */
+:root:not(.dark) .vipaz-production .text-white,
+:root:not(.dark) .vipaz-production .text-slate-100,
+:root:not(.dark) .vipaz-production .text-slate-200 { color: var(--text-primary) !important; }
+:root:not(.dark) .vipaz-production .text-slate-300,
+:root:not(.dark) .vipaz-production .text-slate-400 { color: var(--text-secondary) !important; }
+:root:not(.dark) .vipaz-production .text-slate-500,
+:root:not(.dark) .vipaz-production .text-slate-600 { color: var(--text-muted) !important; }
+:root:not(.dark) .vipaz-production [class*="bg-slate-900"],
+:root:not(.dark) .vipaz-production [class*="bg-slate-800"] {
+  background: var(--bg-surface-subtle) !important;
+  border-color: var(--border-default) !important;
+}
+:root:not(.dark) .vipaz-production [class*="bg-cyan-500/15"],
+:root:not(.dark) .vipaz-production [class*="bg-cyan-500/20"],
+:root:not(.dark) .vipaz-production [class*="bg-cyan-950"] { background: var(--primary-subtle) !important; }
+:root:not(.dark) .vipaz-production .text-cyan-300,
+:root:not(.dark) .vipaz-production .text-cyan-400 { color: var(--primary-main) !important; }
+:root:not(.dark) .vipaz-production .text-amber-200,
+:root:not(.dark) .vipaz-production .text-amber-300,
+:root:not(.dark) .vipaz-production .text-amber-400 { color: #92400E !important; }
+:root:not(.dark) .vipaz-production [class*="bg-amber-950"] { background: #FFFBEB !important; }
+:root:not(.dark) .vipaz-production [class*="border-amber-500"] { border-color: #F59E0B !important; }
+
+.vipaz-field-label { display:block; margin-bottom:.375rem; font-size:.6875rem; font-weight:600; color:var(--text-secondary); letter-spacing:.02em; }
+.vipaz-ai-button { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border:1px solid var(--border-default); background:var(--bg-surface-subtle); color:var(--primary-main); border-radius:999px; padding:.42rem .7rem; font-size:.6875rem; font-weight:650; transition:all .15s ease; }
+.vipaz-ai-button:hover:not(:disabled) { border-color:var(--primary-main); background:var(--primary-subtle); }
+.vipaz-ai-button:disabled { opacity:.55; cursor:not-allowed; }
+.vipaz-ai-badge { display:inline-flex; align-items:center; gap:.35rem; border:1px solid var(--border-default); background:var(--primary-subtle); color:var(--primary-main); border-radius:999px; padding:.35rem .6rem; font-size:.625rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
