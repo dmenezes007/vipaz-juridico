@@ -71,6 +71,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     process_number: '',
     court_number: '',
     court_type: 'Vara Cível',
+    court_type_custom: '',
     court_regional: '',
     district: '',
     uf: 'RJ',
@@ -132,13 +133,15 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
 
   const isAgravo = formData.document_piece === 'Agravo de Instrumento';
   const countersecurityAllowed = Boolean(
-    formData.dispute_objects.reajuste_anual ||
-    formData.dispute_objects.reajuste_etario ||
-    formData.appeal_specific_instructions?.toLowerCase().includes('contracautela')
+    formData.dispute_objects.reajuste_anual || formData.dispute_objects.reajuste_etario
   );
 
   const handleGenerateAiField = async (field: AgravoAiField) => {
     if (generatingAiField) return;
+    if (!selectedFile?.fileObj) {
+      setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
+      return;
+    }
     setGeneratingAiField(field);
     setAiFieldError(null);
     try {
@@ -157,12 +160,33 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         historico_processual: formData.appeal_procedural_history,
         instrucoes_especificas: formData.appeal_specific_instructions,
         countersecurity_allowed: countersecurityAllowed,
-      });
+      }, selectedFile.fileObj);
       updateField(field as keyof LegalFormData, content as never);
     } catch (err) {
       setAiFieldError(err instanceof Error ? err.message : 'Não foi possível gerar o texto.');
     } finally {
       setGeneratingAiField(null);
+    }
+  };
+
+  const handleGenerateAllAiFields = async () => {
+    if (generatingAiField) return;
+    if (!selectedFile?.fileObj) {
+      setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
+      return;
+    }
+    const fields: AgravoAiField[] = [
+      'executive_summary',
+      'claim_summary',
+      'appeal_effect_suspensive',
+      'appeal_mistaken_premise',
+      'appeal_fumus',
+      'appeal_periculum',
+      ...(countersecurityAllowed ? ['appeal_countersecurity' as AgravoAiField] : []),
+      'appeal_final_requests',
+    ];
+    for (const field of fields) {
+      await handleGenerateAiField(field);
     }
   };
 
@@ -299,7 +323,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     });
 
     const samplePdfContent =
-      '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF\n';
+      '%PDF-1.41 0 obj<</Type/Catalog/Pages 2 0 R>>endobj2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobjxref0 40000000000 65535 f 0000000009 00000 n 0000000052 00000 n 0000000101 00000 n trailer<</Size 4/Root 1 0 R>>startxref178%%EOF';
     const sampleBlob = new Blob([samplePdfContent], { type: 'application/pdf' });
     const quickFile = new File([sampleBlob], 'Autos_0802491_SulAmerica.pdf', {
       type: 'application/pdf',
@@ -549,7 +573,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
                       : 'bg-slate-800/40 text-slate-500'
                   }`}>
-                    {cawDocxStep === 'error' ? 'Falha' : '6. Concluído'}
+                    {cawDocxStep === 'error' ? 'Falha' : 'Concluído'}
                   </div>
                 </div>
               </div>
@@ -630,7 +654,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                03
+                01
               </span>
               <span>Tipo de Peça Processual</span>
             </h3>
@@ -653,13 +677,13 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 text-slate-300'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <span className="text-xs font-bold text-slate-100">{piece.label}</span>
                     <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
+                      className={`shrink-0 whitespace-nowrap text-[9px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold ${
                         piece.isHomologated
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          ? 'bg-white text-emerald-700 border border-emerald-500'
+                          : 'bg-white text-amber-700 border border-amber-500'
                       }`}
                     >
                       {piece.isHomologated ? 'Homologada' : 'Em Dev'}
@@ -672,13 +696,13 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
 
           {!isCurrentPieceHomologated && (
-            <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs text-amber-200 flex items-start gap-3">
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-400 dark:border-amber-700 rounded-xl text-xs text-amber-950 dark:text-amber-100 flex items-start gap-3">
               <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-300">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">
                   Fluxo final de produção ainda em configuração
                 </p>
-                <p className="text-[11px] text-amber-200/80 mt-0.5">
+                <p className="text-[11px] text-amber-950 dark:text-amber-100 mt-0.5">
                   A peça processual selecionada (<strong>{formData.document_piece}</strong>) está em fase de modelagem de regras.
                   Para prosseguir com a montagem determinística e download do DOCX, selecione <strong>Contestação</strong>.
                 </p>
@@ -688,6 +712,35 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         </div>
 
 
+        {/* SEÇÃO 02: ANEXO DOS AUTOS PROCESSUAIS */}
+        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+                02
+              </span>
+              <span>Anexo dos Autos Processuais (PDF)</span>
+            </h3>
+            <span className="text-[11px] text-cyan-400 font-mono">{isAgravo ? 'Obrigatório para IA' : 'Opcional'}</span>
+          </div>
+
+          <PdfUploader
+            disabled={isSubmitting}
+            selectedFile={selectedFile}
+            onFileSelect={(file) => {
+              setSelectedFile(file);
+              setClientErrors((prev) => {
+                const copy = { ...prev };
+                delete copy.file;
+                return copy;
+              });
+            }}
+            onFileRemove={() => setSelectedFile(null)}
+          />
+        </div>
+
+
+
         {clientErrors.submit && (
           <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-3">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -695,12 +748,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         )}
 
-        {/* SEÇÃO 02: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
+        {/* SEÇÃO 03: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                01
+                03
               </span>
               <span>Identificação do Processo & Juízo Competente</span>
             </h3>
@@ -751,7 +804,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               <label className="block text-xs font-medium text-slate-300">
                 JUÍZO COMPETENTE <span className="text-cyan-400">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   disabled={isSubmitting}
@@ -762,7 +815,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  Vara Cível (DA)
+                  Vara Cível
                 </button>
                 <button
                   type="button"
@@ -774,10 +827,24 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  Juizado Especial (DO)
+                  Juizado Especial
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => updateField('court_type', 'Outro')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${formData.court_type === 'Outro' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'}`}
+                >
+                  Outro
                 </button>
               </div>
             </div>
+            {formData.court_type === 'Outro' && (
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="block text-xs font-medium text-slate-300">JUÍZO COMPETENTE — PREENCHIMENTO MANUAL <span className="text-cyan-400">*</span></label>
+                <input type="text" value={formData.court_type_custom || ''} onChange={(e)=>updateField('court_type_custom',e.target.value)} placeholder="Ex.: 2ª Vara Empresarial" className="vipaz-input"/>
+              </div>
+            )}
 
             {/* NÚMERO DA VARA */}
             <div className="space-y-1.5">
@@ -819,7 +886,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           {/* REGIONAL (OPCIONAL) */}
           <div className="pt-1">
             <label className="block text-xs font-medium text-slate-400">
-              FORO REGIONAL / SUBSEÇÃO (SE HOUVER)
+              FORO REGIONAL / SUBSEÇÃO
             </label>
             <input
               type="text"
@@ -832,12 +899,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {/* SEÇÃO 03: PARTES & NATUREZA */}
+        {/* SEÇÃO 04: PARTES & NATUREZA */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                02
+                04
               </span>
               <span>Partes do Processo & Natureza Jurídica</span>
             </h3>
@@ -882,7 +949,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             </div>
           </div>
 
-          {/* NATUREZA DA PARTE ADVERSA */}
+          {!isAgravo && (<>          {/* NATUREZA DA PARTE ADVERSA */}
           <div className="pt-2">
             <label className="block text-xs font-medium text-slate-300 mb-2">
               COMPOSIÇÃO DO POLO ATIVO ADVERSO <span className="text-cyan-400">*</span>
@@ -914,14 +981,15 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               </p>
             )}
           </div>
+</>)}
         </div>
 
-        {/* SEÇÃO 04: OBJETO DA LIDE (CLASSIFICAÇÃO ESTRUTURADA) */}
+        {/* SEÇÃO 05: OBJETO DA LIDE (CLASSIFICAÇÃO ESTRUTURADA) */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                04
+                05
               </span>
               <span>Objeto da Lide (Classificação Estruturada)</span>
             </h3>
@@ -1165,12 +1233,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {formData.document_piece === 'Contestação' && (<>\n        {/* SEÇÃO 05: SÍNTESE E DELIMITAÇÃO */}
+        {formData.document_piece === 'Contestação' && (<>{/* SEÇÃO 06: SÍNTESE E DELIMITAÇÃO */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                05
+                06
               </span>
               <span>Ementa Executiva & Delimitação da Controvérsia</span>
             </h3>
@@ -1233,12 +1301,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {/* SEÇÃO 06: TUTELA & DANO MORAL */}
+        {/* SEÇÃO 07: TUTELA & DANO MORAL */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                06
+                07
               </span>
               <span>Tutela de Urgência & Dano Moral</span>
             </h3>
@@ -1304,12 +1372,12 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {/* SEÇÃO 07: PRELIMINARES & PREJUDICIAIS */}
+        {/* SEÇÃO 08: PRELIMINARES & PREJUDICIAIS */}
         <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
               <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                07
+                08
               </span>
               <span>Preliminares & Prejudiciais de Mérito</span>
             </h3>
@@ -1329,7 +1397,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('standing_challenge_status', 'do_not_challenge')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.standing_challenge_status === 'do_not_challenge'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1361,7 +1429,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('legal_aid_status', 'do_not_challenge')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.legal_aid_status !== 'challenge'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1408,7 +1476,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('claim_value_challenge_status', 'do_not_challenge')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.claim_value_challenge_status === 'do_not_challenge'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1440,7 +1508,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('petition_aptitude_status', 'do_not_challenge')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.petition_aptitude_status === 'do_not_challenge'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1472,7 +1540,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('prescription_triennial_status', 'do_not_argue')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.prescription_triennial_status === 'do_not_argue'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1504,7 +1572,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                   onClick={() => updateField('prescription_decennial_status', 'do_not_argue')}
                   className={`flex-1 py-1.5 rounded-lg border text-[11px] transition ${
                     formData.prescription_decennial_status === 'do_not_argue'
-                      ? 'bg-slate-700 border-slate-600 text-white'
+                      ? 'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold'
                       : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
@@ -1548,83 +1616,31 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-\n        </>)}\n\n        {isAgravo && (
+</>)}{isAgravo && (
           <div className="space-y-6">
             <div className="p-6 rounded-2xl vipaz-card space-y-5">
               <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[var(--bg-surface-subtle)] vipaz-text-brand flex items-center justify-center font-mono text-[10px]">05</span>
-                  <span>Contexto do Agravo de Instrumento</span>
-                </h3>
-                <span className="text-[11px] vipaz-text-muted">Base para assistência por IA</span>
-              </div>
-              <p className="text-[11px] leading-5 vipaz-text-muted">Informe somente fatos e documentos efetivamente existentes nos autos. A IA utilizará este contexto para preencher os tópicos editáveis e nunca deverá completar lacunas factuais por inferência.</p>
-              <div className="grid md:grid-cols-2 gap-4">
-                {[
-                  ['appeal_demand_type','TIPO DE DEMANDA','Ex.: ação declaratória de nulidade de reajustes contratuais'],
-                  ['appeal_main_object','OBJETO PRINCIPAL DA DEMANDA','Descreva o objeto principal discutido na origem'],
-                ].map(([field,label,placeholder])=><div key={field}><label className="vipaz-field-label">{label}</label><textarea rows={3} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} placeholder={placeholder} className="vipaz-input min-h-[88px] resize-y"/></div>)}
-              </div>
-              {[
-                ['appealed_decision','DECISÃO AGRAVADA','Transcreva ou sintetize fielmente a decisão, incluindo obrigações, prazo, multa e dispositivo quando existentes.'],
-                ['appeal_initial_claim','PETIÇÃO INICIAL / PRETENSÃO DA PARTE AUTORA','Registre as alegações e pedidos relevantes para o recurso.'],
-                ['appeal_relevant_documents','DOCUMENTOS PROCESSUAIS RELEVANTES','Identifique os documentos que podem ser efetivamente utilizados na fundamentação.'],
-                ['appeal_contractual_documents','CONTRATO / DOCUMENTAÇÃO TÉCNICA','Informe cláusulas, condições gerais, estudos, memória de cálculo ou documentação técnica efetivamente disponível.'],
-                ['appeal_procedural_history','HISTÓRICO PROCESSUAL RELEVANTE','Registre apenas os eventos processuais necessários à compreensão do recurso.'],
-                ['appeal_specific_instructions','INSTRUÇÕES ESPECÍFICAS DO CASO','Orientações adicionais. A menção expressa a contracautela também autoriza o tópico subsidiário.'],
-              ].map(([field,label,placeholder])=><div key={field}><label className="vipaz-field-label">{label}</label><textarea rows={3} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} placeholder={placeholder} className="vipaz-input min-h-[92px] resize-y"/></div>)}
-            </div>
-
-            <div className="p-6 rounded-2xl vipaz-card space-y-5">
-              <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
-                <div><h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary">Conteúdo assistido por IA</h3><p className="mt-1 text-[11px] vipaz-text-muted">Gere cada tópico, leia e edite antes da produção final.</p></div>
-                <span className="vipaz-ai-badge"><Sparkles className="w-3 h-3"/>IA assistida</span>
+                <div><h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary">Contexto do Agravo de Instrumento</h3><p className="mt-1 text-[11px] vipaz-text-muted">Gere cada tópico, leia e edite antes da produção final.</p></div>
+                <button type="button" onClick={handleGenerateAllAiFields} disabled={Boolean(generatingAiField)} className="vipaz-ai-button"><Sparkles className="w-3.5 h-3.5"/>Gerar todos com IA</button>
               </div>
               {aiFieldError && <div className="p-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-xs">{aiFieldError}</div>}
               {([
                 ['executive_summary','EMENTA EXECUTIVA'],
-                ['claim_summary','1. DO OBJETO DO RECURSO E SÍNTESE DA CONTROVÉRSIA'],
-                ['appeal_effect_suspensive','2. DA NECESSIDADE DE CONCESSÃO DE EFEITO SUSPENSIVO'],
-                ['appeal_mistaken_premise','3. DA PREMISSA EQUIVOCADA DA DECISÃO RECORRIDA'],
-                ['appeal_fumus','4. DA INCONTESTÁVEL VEROSSIMILHANÇA OU PROBABILIDADE DO DIREITO (FUMUS BONI IURIS)'],
-                ['appeal_periculum','5. DO IMINENTE RISCO DE DANO GRAVE E DE DIFÍCIL REPARAÇÃO (PERICULUM IN MORA)'],
-                ...(countersecurityAllowed ? [['appeal_countersecurity','6. DO REQUERIMENTO SUBSIDIÁRIO DE CONTRACAUTELA CIVIL (ART. 300, § 1º, CPC)']] : []),
+                ['claim_summary','DO OBJETO DO RECURSO E SÍNTESE DA CONTROVÉRSIA'],
+                ['appeal_effect_suspensive','DA NECESSIDADE DE CONCESSÃO DE EFEITO SUSPENSIVO'],
+                ['appeal_mistaken_premise','DA PREMISSA EQUIVOCADA DA DECISÃO RECORRIDA'],
+                ['appeal_fumus','DA INCONTESTÁVEL VEROSSIMILHANÇA OU PROBABILIDADE DO DIREITO (FUMUS BONI IURIS)'],
+                ['appeal_periculum','DO IMINENTE RISCO DE DANO GRAVE E DE DIFÍCIL REPARAÇÃO (PERICULUM IN MORA)'],
+                ...(countersecurityAllowed ? [['appeal_countersecurity','DO REQUERIMENTO SUBSIDIÁRIO DE CONTRACAUTELA CIVIL (ART. 300, § 1º, CPC)']] : []),
                 ['appeal_final_requests','DOS REQUERIMENTOS FINAIS'],
               ] as [AgravoAiField,string][]).map(([field,label])=><div key={field} className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2"><label className="vipaz-field-label mb-0">{label}</label><button type="button" onClick={()=>handleGenerateAiField(field)} disabled={Boolean(generatingAiField)} className="vipaz-ai-button">{generatingAiField===field?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}{generatingAiField===field?'Gerando…':String(formData[field as keyof LegalFormData]||'').trim()?'Gerar novamente com IA':'Gerar com IA'}</button></div>
                 <textarea rows={field==='executive_summary'?6:10} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} className="vipaz-input resize-y leading-6" placeholder="O texto gerado aparecerá aqui e permanecerá totalmente editável."/>
               </div>)}
-              {!countersecurityAllowed && <p className="text-[11px] vipaz-text-muted border-t vipaz-border-subtle pt-4">O tópico de contracautela e o pedido subsidiário correspondente permanecem omitidos. Eles serão habilitados quando o objeto envolver reajuste ou houver autorização expressa nas instruções específicas.</p>}
+              {!countersecurityAllowed && <p className="text-[11px] vipaz-text-muted border-t vipaz-border-subtle pt-4">O tópico de contracautela e o pedido subsidiário correspondente permanecem omitidos. Eles serão habilitados somente quando o objeto selecionado for Reajuste Anual e/ou Reajuste Etário.</p>}
             </div>
           </div>
         )}
-
-        {/* SEÇÃO 08: ANEXO DOS AUTOS PROCESSUAIS */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                08
-              </span>
-              <span>Anexo dos Autos Processuais (PDF)</span>
-            </h3>
-            <span className="text-[11px] text-cyan-400 font-mono">Opcional</span>
-          </div>
-
-          <PdfUploader
-            disabled={isSubmitting}
-            selectedFile={selectedFile}
-            onFileSelect={(file) => {
-              setSelectedFile(file);
-              setClientErrors((prev) => {
-                const copy = { ...prev };
-                delete copy.file;
-                return copy;
-              });
-            }}
-            onFileRemove={() => setSelectedFile(null)}
-          />
-        </div>
 
         {/* BARRA INFERIOR DE AÇÃO & INSPEÇÃO */}
         <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-800">
