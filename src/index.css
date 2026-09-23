@@ -820,3 +820,45 @@
 :root:not(.dark) .vipaz-map-modal .text-amber-400 { color: #92400E !important; }
 :root:not(.dark) .vipaz-map-modal .text-rose-300,
 :root:not(.dark) .vipaz-map-modal .text-rose-400 { color: #B42318 !important; }
+
+
+/* =========================================================
+   NOVA PEÇA — CONTRAST NORMALIZATION
+   Keeps legacy utility classes visually aligned with the
+   semantic VIPAZ palette in light mode while preserving dark.
+   ========================================================= */
+:root:not(.dark) .vipaz-production .bg-slate-900,
+:root:not(.dark) .vipaz-production .bg-slate-900\/60,
+:root:not(.dark) .vipaz-production .bg-slate-900\/80,
+:root:not(.dark) .vipaz-production .bg-slate-900\/90,
+:root:not(.dark) .vipaz-production .bg-slate-800\/40,
+:root:not(.dark) .vipaz-production .bg-slate-800\/60,
+:root:not(.dark) .vipaz-production .bg-slate-800\/80 {
+  background: var(--bg-surface-subtle) !important;
+}
+:root:not(.dark) .vipaz-production .border-slate-700,
+:root:not(.dark) .vipaz-production .border-slate-700\/60,
+:root:not(.dark) .vipaz-production .border-slate-700\/80,
+:root:not(.dark) .vipaz-production .border-slate-800,
+:root:not(.dark) .vipaz-production .border-slate-800\/80 {
+  border-color: var(--border-default) !important;
+}
+:root:not(.dark) .vipaz-production .text-slate-100,
+:root:not(.dark) .vipaz-production .text-slate-200,
+:root:not(.dark) .vipaz-production .text-slate-300 {
+  color: var(--text-primary) !important;
+}
+:root:not(.dark) .vipaz-production .text-slate-400,
+:root:not(.dark) .vipaz-production .text-slate-500,
+:root:not(.dark) .vipaz-production .text-slate-600 {
+  color: var(--text-muted) !important;
+}
+:root:not(.dark) .vipaz-production input,
+:root:not(.dark) .vipaz-production textarea,
+:root:not(.dark) .vipaz-production select {
+  color: var(--text-primary);
+}
+:root:not(.dark) .vipaz-production input::placeholder,
+:root:not(.dark) .vipaz-production textarea::placeholder {
+  color: var(--text-subtle);
+}
