@@ -35,7 +35,12 @@ export function validateLegalForm(data: Partial<LegalFormData>): ValidationError
   if (!data.court_type) {
     errors.push({
       field: 'court_type',
-      message: 'Selecione o juízo competente (Vara Cível ou Juizado Especial Cível).',
+      message: 'Selecione o juízo competente.',
+    });
+  } else if (data.court_type === 'Outro' && !data.court_type_custom?.trim()) {
+    errors.push({
+      field: 'court_type_custom',
+      message: 'Informe manualmente o juízo competente.',
     });
   }
 
