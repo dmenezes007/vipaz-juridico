@@ -3,7 +3,7 @@
  * Tipos e Interfaces do Domínio Jurídico
  */
 
-export type CourtType = 'Vara Cível' | 'Juizado Especial Cível';
+export type CourtType = 'Vara Cível' | 'Juizado Especial Cível' | 'Outro';
 export type UfType = 'RJ' | 'SP' | 'MG' | 'BA';
 export type AdversePartyNature = 'pj' | 'pf';
 
@@ -76,6 +76,7 @@ export interface LegalFormData {
   process_number: string;
   court_number: string; // apenas numérico
   court_type: CourtType;
+  court_type_custom?: string;
   court_regional?: string;
   district: string; // Comarca
   uf: UfType;
