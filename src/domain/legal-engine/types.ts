@@ -106,6 +106,22 @@ export interface LegalFormData {
   prescription_decennial_status: PrescriptionDecennialStatus;
   repetition_status: RepetitionStatus;
 
+  // Agravo de Instrumento — contexto e campos assistidos por IA
+  appeal_demand_type?: string;
+  appeal_main_object?: string;
+  appealed_decision?: string;
+  appeal_initial_claim?: string;
+  appeal_relevant_documents?: string;
+  appeal_contractual_documents?: string;
+  appeal_procedural_history?: string;
+  appeal_specific_instructions?: string;
+  appeal_effect_suspensive?: string;
+  appeal_mistaken_premise?: string;
+  appeal_fumus?: string;
+  appeal_periculum?: string;
+  appeal_countersecurity?: string;
+  appeal_final_requests?: string;
+
   // Anexo opcional
   source_file?: File | null;
 }
