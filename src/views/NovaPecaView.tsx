@@ -165,7 +165,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         injunction_status: formData.injunction_status,
         moral_damages_status: formData.moral_damages_status,
         repetition_status: formData.repetition_status,
-      }, selectedFile.fileObj);
+      }, selectedFile.fileObj, organization.id);
       updateField(field as keyof LegalFormData, content as never);
     } catch (err) {
       setAiFieldError(err instanceof Error ? err.message : 'Não foi possível gerar o texto.');

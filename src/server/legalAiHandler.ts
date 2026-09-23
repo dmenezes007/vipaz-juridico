@@ -69,7 +69,23 @@ export async function handleLegalAiField(req:Request,res:Response) {
 
     const {field,context,source_pdf}=req.body||{};
     if(!ALLOWED_FIELDS.has(field)) return res.status(400).json({error:'Campo não autorizado para geração assistida.'});
-    if(!source_pdf?.base64 || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
+    if(!source_pdf?.signed_url || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
+
+    // O cliente envia somente uma URL assinada curta. O backend recupera o PDF
+    // do Storage privado e o encaminha ao n8n, evitando o limite de 4,5 MB de
+    // entrada das Vercel Functions para PDFs processuais de maior porte.
+    const pdfResponse = await fetch(source_pdf.signed_url);
+    if(!pdfResponse.ok) return res.status(502).json({error:'Não foi possível recuperar os autos armazenados para a geração assistida.'});
+    const contentType = pdfResponse.headers.get('content-type') || '';
+    if(!contentType.toLowerCase().includes('application/pdf')) return res.status(400).json({error:'O arquivo armazenado não foi reconhecido como PDF.'});
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    if(!pdfBuffer.length) return res.status(400).json({error:'O PDF armazenado está vazio.'});
+    if(pdfBuffer.length > 30 * 1024 * 1024) return res.status(413).json({error:'O PDF excede o limite de 30 MB para geração assistida.'});
+    const sourcePdfForWorkflow = {
+      name: source_pdf.name || 'autos.pdf',
+      mime_type: 'application/pdf',
+      base64: pdfBuffer.toString('base64'),
+    };
     if(field==='appeal_countersecurity' && !context?.countersecurity_allowed) return res.status(400).json({error:'Contracautela não autorizada pelas regras do caso.'});
 
     const response=await fetch(webhookUrl,{
@@ -83,7 +99,7 @@ export async function handleLegalAiField(req:Request,res:Response) {
           : FIELD_GUIDANCE[field],
         system_instruction:buildSystemInstruction(field, context?.document_piece),
         context,
-        source_pdf,
+        source_pdf: sourcePdfForWorkflow,
       })
     });
     if(!response.ok){const body=await response.text(); console.error('[VIPAZ][LegalAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
