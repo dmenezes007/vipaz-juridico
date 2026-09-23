@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { handleGenerateDocx } from '../src/server/generateDocxHandler';
+import { handleGenerateDocx } from '../src/server/generateDocxHandler.js';
 
 export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
