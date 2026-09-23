@@ -55,7 +55,7 @@ import {
   HOMOLOGATED_CASE_DEFAULTS,
 } from '../domain/legal-engine/formDefinitions';
 import { isPieceHomologated } from '../domain/legal-engine/architectureRegistry';
-import { agravoAiService, AgravoAiField } from '../services/agravoAiService';
+import { legalAiService, LegalAiField } from '../services/legalAiService';
 
 interface NovaPecaViewProps {
   organization: Organization;
@@ -116,7 +116,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     linked_requests_count: number;
   } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [generatingAiField, setGeneratingAiField] = useState<AgravoAiField | null>(null);
+  const [generatingAiField, setGeneratingAiField] = useState<LegalAiField | null>(null);
   const [aiFieldError, setAiFieldError] = useState<string | null>(null);
 
   // Estados da Fase 4: Geração Experimental do DOCX Determinístico
@@ -136,7 +136,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     formData.dispute_objects.reajuste_anual || formData.dispute_objects.reajuste_etario
   );
 
-  const handleGenerateAiField = async (field: AgravoAiField) => {
+  const handleGenerateAiField = async (field: LegalAiField) => {
     if (generatingAiField) return;
     if (!selectedFile?.fileObj) {
       setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
@@ -145,7 +145,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     setGeneratingAiField(field);
     setAiFieldError(null);
     try {
-      const content = await agravoAiService.generate(field, {
+      const content = await legalAiService.generate(field, {
         document_piece: formData.document_piece,
         process_number: formData.process_number,
         tribunal: formData.uf,
@@ -180,7 +180,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
       setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
       return;
     }
-    for (const field of ['executive_summary','claim_summary','controversy_delimitation'] as AgravoAiField[]) {
+    for (const field of ['executive_summary','claim_summary','controversy_delimitation'] as LegalAiField[]) {
       await handleGenerateAiField(field);
     }
   };
@@ -191,14 +191,14 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
       setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
       return;
     }
-    const fields: AgravoAiField[] = [
+    const fields: LegalAiField[] = [
       'executive_summary',
       'claim_summary',
       'appeal_effect_suspensive',
       'appeal_mistaken_premise',
       'appeal_fumus',
       'appeal_periculum',
-      ...(countersecurityAllowed ? ['appeal_countersecurity' as AgravoAiField] : []),
+      ...(countersecurityAllowed ? ['appeal_countersecurity' as LegalAiField] : []),
       'appeal_final_requests',
     ];
     for (const field of fields) {
@@ -1269,7 +1269,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             ['executive_summary','EMENTA EXECUTIVA (SÍNTESE INTRODUTÓRIA)'],
             ['claim_summary','RESUMO DA PETIÇÃO INICIAL'],
             ['controversy_delimitation','EXATA DELIMITAÇÃO DA CONTROVÉRSIA'],
-          ] as [AgravoAiField,string][]).map(([field,label]) => (
+          ] as [LegalAiField,string][]).map(([field,label]) => (
             <div key={field} className="space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label className="vipaz-field-label mb-0">{label}</label>
@@ -1590,7 +1590,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
                 ['appeal_periculum','DO IMINENTE RISCO DE DANO GRAVE E DE DIFÍCIL REPARAÇÃO (PERICULUM IN MORA)'],
                 ...(countersecurityAllowed ? [['appeal_countersecurity','DO REQUERIMENTO SUBSIDIÁRIO DE CONTRACAUTELA CIVIL (ART. 300, § 1º, CPC)']] : []),
                 ['appeal_final_requests','DOS REQUERIMENTOS FINAIS'],
-              ] as [AgravoAiField,string][]).map(([field,label])=><div key={field} className="space-y-2">
+              ] as [LegalAiField,string][]).map(([field,label])=><div key={field} className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2"><label className="vipaz-field-label mb-0">{label}</label><button type="button" onClick={()=>handleGenerateAiField(field)} disabled={Boolean(generatingAiField)} className="vipaz-ai-button">{generatingAiField===field?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}{generatingAiField===field?'Gerando…':String(formData[field as keyof LegalFormData]||'').trim()?'Gerar novamente com IA':'Gerar com IA'}</button></div>
                 <textarea rows={field==='executive_summary'?6:10} value={String(formData[field as keyof LegalFormData]||'')} onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)} className="vipaz-input resize-y leading-6" placeholder="O texto gerado aparecerá aqui e permanecerá totalmente editável."/>
               </div>)}

@@ -61,10 +61,10 @@ async function validateSession(req:Request) {
   return response.ok;
 }
 
-export async function handleAgravoAiField(req:Request,res:Response) {
+export async function handleLegalAiField(req:Request,res:Response) {
   try {
     if (!(await validateSession(req))) return res.status(401).json({error:'Sessão inválida ou expirada.'});
-    const webhookUrl=process.env.AGRAVO_AI_N8N_WEBHOOK_URL;
+    const webhookUrl=process.env.LEGAL_AI_N8N_WEBHOOK_URL;
     if(!webhookUrl) return res.status(503).json({error:'Workflow de IA ainda não configurado no servidor.'});
 
     const {field,context,source_pdf}=req.body||{};
@@ -74,9 +74,9 @@ export async function handleAgravoAiField(req:Request,res:Response) {
 
     const response=await fetch(webhookUrl,{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-VIPAZ-Secret':process.env.AGRAVO_AI_N8N_SECRET||''},
+      headers:{'Content-Type':'application/json','X-VIPAZ-Secret':process.env.LEGAL_AI_N8N_SECRET||''},
       body:JSON.stringify({
-        task:'generate_agravo_field',
+        task:'generate_legal_field',
         field,
         field_guidance: context?.document_piece === 'Contestação' && ['executive_summary','claim_summary','controversy_delimitation'].includes(field)
           ? undefined
@@ -86,10 +86,10 @@ export async function handleAgravoAiField(req:Request,res:Response) {
         source_pdf,
       })
     });
-    if(!response.ok){const body=await response.text(); console.error('[VIPAZ][AgravoAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
+    if(!response.ok){const body=await response.text(); console.error('[VIPAZ][LegalAI][n8n]',response.status,body); return res.status(502).json({error:'Falha no workflow de geração assistida. Tente novamente.'});}
     const data:any=await response.json();
     const content=String(data?.content||data?.text||data?.output||'').trim();
     if(!content) return res.status(502).json({error:'O workflow não retornou conteúdo utilizável.'});
     return res.json({content});
-  } catch(error){console.error('[VIPAZ][AgravoAI] erro:',error); return res.status(500).json({error:'Não foi possível concluir a assistência por IA.'});}
+  } catch(error){console.error('[VIPAZ][LegalAI] erro:',error); return res.status(500).json({error:'Não foi possível concluir a assistência por IA.'});}
 }
