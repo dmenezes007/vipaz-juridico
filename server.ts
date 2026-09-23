@@ -11,8 +11,8 @@ async function startServer() {
   const app = express();
 
   // Parsing de payloads JSON e URL-encoded
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(express.json({ limit: '35mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '35mb' }));
 
   // ==========================================
   // ROTAS DE API DO BACKEND VIPAZ (SEMPRE PRIMEIRO)
