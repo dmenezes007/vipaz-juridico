@@ -223,8 +223,9 @@ export function resolveTerritorialEnderecamento(params: {
   const isOther = courtType === 'Outro';
   const courtNum = (params.courtNumber || '').trim();
 
-  const regionalPart = params.courtRegional?.trim()
-    ? ` ${params.courtRegional.trim().toUpperCase()}`
+  const regionalRaw = params.courtRegional?.trim().toUpperCase() || '';
+  const regionalPart = regionalRaw
+    ? ` ${/^(FORO|SUBSEÇÃO|REGIONAL)/.test(regionalRaw) ? regionalRaw : `FORO REGIONAL ${regionalRaw}`}`
     : '';
 
   const rawDistrict = (params.district || 'CAPITAL').trim().toUpperCase();
@@ -424,7 +425,10 @@ export function buildCawDocxPayload(params: DocumentPayloadMapperParams): CawDoc
   // ====================================================================
 
   // 1. Processo semântico
-  const regionalLabel = formData.court_regional ? ' ' + String(formData.court_regional).trim() : '';
+  const regionalRawLabel = formData.court_regional ? String(formData.court_regional).trim() : '';
+  const regionalLabel = regionalRawLabel
+    ? ' ' + (/^(foro|subseção|regional)/i.test(regionalRawLabel) ? regionalRawLabel : 'Foro Regional ' + regionalRawLabel)
+    : '';
   const orgaoJulgador = formData.court_type
     ? (formData.court_type === 'Juizado Especial Cível'
         ? `${formData.court_number || ''}º Juizado Especial Cível${regionalLabel}`.trim()
