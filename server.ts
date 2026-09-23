@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import 'dotenv/config';
 import { handleGenerateDocx } from './src/server/generateDocxHandler';
-import { handleAgravoAiField } from './src/server/agravoAiHandler';
+import { handleLegalAiField } from './src/server/legalAiHandler';
 
 const PORT = 3000;
 const HOST = '0.0.0.0';
@@ -28,9 +28,9 @@ async function startServer() {
     });
   });
 
-  // Assistência por IA para campos editáveis do Agravo de Instrumento
-  app.post('/api/ai/agravo-field', (req, res) => {
-    handleAgravoAiField(req, res);
+  // Assistência por IA para campos editáveis das peças jurídicas
+  app.post('/api/ai/legal-field', (req, res) => {
+    handleLegalAiField(req, res);
   });
 
   // Endpoint seguro de geração DOCX via motor CAW (n8n / Carbone)
