@@ -146,6 +146,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
     setAiFieldError(null);
     try {
       const content = await agravoAiService.generate(field, {
+        document_piece: formData.document_piece,
         process_number: formData.process_number,
         tribunal: formData.uf,
         juizo_origem: [formData.court_number, formData.court_type, formData.district, formData.uf].filter(Boolean).join(' · '),
@@ -160,12 +161,27 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         historico_processual: formData.appeal_procedural_history,
         instrucoes_especificas: formData.appeal_specific_instructions,
         countersecurity_allowed: countersecurityAllowed,
+        dispute_objects: formData.dispute_objects,
+        injunction_status: formData.injunction_status,
+        moral_damages_status: formData.moral_damages_status,
+        repetition_status: formData.repetition_status,
       }, selectedFile.fileObj);
       updateField(field as keyof LegalFormData, content as never);
     } catch (err) {
       setAiFieldError(err instanceof Error ? err.message : 'Não foi possível gerar o texto.');
     } finally {
       setGeneratingAiField(null);
+    }
+  };
+
+  const handleGenerateAllContestacaoAiFields = async () => {
+    if (generatingAiField) return;
+    if (!selectedFile?.fileObj) {
+      setAiFieldError('Anexe os autos processuais em PDF antes de gerar conteúdo com IA.');
+      return;
+    }
+    for (const field of ['executive_summary','claim_summary','controversy_delimitation'] as AgravoAiField[]) {
+      await handleGenerateAiField(field);
     }
   };
 
@@ -650,10 +666,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* SEÇÃO 01: TIPO DE PEÇA PROCESSUAL */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-4">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 01
               </span>
               <span>Tipo de Peça Processual</span>
@@ -713,10 +729,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
 
 
         {/* SEÇÃO 02: ANEXO DOS AUTOS PROCESSUAIS */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-4">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 02
               </span>
               <span>Anexo dos Autos Processuais (PDF)</span>
@@ -749,10 +765,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         )}
 
         {/* SEÇÃO 03: IDENTIFICAÇÃO DO PROCESSO & JUÍZO */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 03
               </span>
               <span>Identificação do Processo & Juízo Competente</span>
@@ -804,47 +820,48 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               <label className="block text-xs font-medium text-slate-300">
                 JUÍZO COMPETENTE <span className="text-cyan-400">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => updateField('court_type', 'Vara Cível')}
+                  onClick={() => { updateField('court_type', 'Vara Cível'); updateField('court_type_custom', ''); }}
                   className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
-                    formData.court_type === 'Vara Cível'
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    formData.court_type === 'Vara Cível' && !formData.court_type_custom?.trim()
+                      ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-700 dark:text-cyan-200'
+                      : 'vipaz-surface vipaz-border vipaz-text-secondary'
                   }`}
-                >
-                  Vara Cível
-                </button>
+                >Vara Cível</button>
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => updateField('court_type', 'Juizado Especial Cível')}
+                  onClick={() => { updateField('court_type', 'Juizado Especial Cível'); updateField('court_type_custom', ''); }}
                   className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
-                    formData.court_type === 'Juizado Especial Cível'
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                    formData.court_type === 'Juizado Especial Cível' && !formData.court_type_custom?.trim()
+                      ? 'bg-cyan-500/20 border-cyan-500/60 text-cyan-700 dark:text-cyan-200'
+                      : 'vipaz-surface vipaz-border vipaz-text-secondary'
                   }`}
-                >
-                  Juizado Especial
-                </button>
-                <button
-                  type="button"
+                >Juizado Especial</button>
+                <input
+                  type="text"
                   disabled={isSubmitting}
-                  onClick={() => updateField('court_type', 'Outro')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${formData.court_type === 'Outro' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'}`}
-                >
-                  Outro
-                </button>
+                  value={formData.court_type_custom || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    updateField('court_type_custom', value);
+                    if (value.trim()) updateField('court_type', 'Outro');
+                  }}
+                  onFocus={(e) => { if (!e.currentTarget.value) e.currentTarget.placeholder = 'Ex.: Vara Empresarial'; }}
+                  onBlur={(e) => { if (!e.currentTarget.value) e.currentTarget.placeholder = 'Outro'; }}
+                  placeholder="Outro"
+                  aria-label="Outro juízo competente"
+                  className={`rounded-xl border px-3 py-2 text-xs font-medium outline-none transition ${
+                    formData.court_type === 'Outro' && formData.court_type_custom?.trim()
+                      ? 'bg-cyan-500/15 border-cyan-500/70 text-cyan-800 dark:text-cyan-100 ring-1 ring-cyan-500/30'
+                      : 'vipaz-surface vipaz-border vipaz-text-secondary focus:border-cyan-500'
+                  }`}
+                />
               </div>
             </div>
-            {formData.court_type === 'Outro' && (
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="block text-xs font-medium text-slate-300">JUÍZO COMPETENTE — PREENCHIMENTO MANUAL <span className="text-cyan-400">*</span></label>
-                <input type="text" value={formData.court_type_custom || ''} onChange={(e)=>updateField('court_type_custom',e.target.value)} placeholder="Ex.: 2ª Vara Empresarial" className="vipaz-input"/>
-              </div>
-            )}
 
             {/* NÚMERO DA VARA */}
             <div className="space-y-1.5">
@@ -900,10 +917,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         </div>
 
         {/* SEÇÃO 04: PARTES & NATUREZA */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 04
               </span>
               <span>Partes do Processo & Natureza Jurídica</span>
@@ -985,10 +1002,10 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
         </div>
 
         {/* SEÇÃO 05: OBJETO DA LIDE (CLASSIFICAÇÃO ESTRUTURADA) */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 05
               </span>
               <span>Objeto da Lide (Classificação Estruturada)</span>
@@ -1233,79 +1250,52 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
           </div>
         </div>
 
-        {formData.document_piece === 'Contestação' && (<>{/* SEÇÃO 06: SÍNTESE E DELIMITAÇÃO */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
-                06
-              </span>
-              <span>Ementa Executiva & Delimitação da Controvérsia</span>
-            </h3>
-            <span className="text-[11px] text-slate-500 font-mono">Fatos e Objeto</span>
+        {formData.document_piece === 'Contestação' && (<>{/* SEÇÃO 06: CONTEXTO DA CONTESTAÇÃO */}
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-secondary flex items-center gap-2">
+                <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">06</span>
+                <span>Contexto da Contestação</span>
+              </h3>
+              <p className="mt-1 text-[11px] vipaz-text-muted">Gere cada campo a partir dos autos, revise e edite antes da produção final.</p>
+            </div>
+            <button type="button" onClick={handleGenerateAllContestacaoAiFields} disabled={Boolean(generatingAiField)} className="vipaz-ai-button">
+              <Sparkles className="w-3.5 h-3.5"/>Gerar todos com IA
+            </button>
           </div>
-
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                EMENTA EXECUTIVA (SÍNTESE INTRODUTÓRIA) <span className="text-cyan-400">*</span>
-              </label>
+          {aiFieldError && <div className="p-3 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-100 text-xs">{aiFieldError}</div>}
+          {([
+            ['executive_summary','EMENTA EXECUTIVA (SÍNTESE INTRODUTÓRIA)'],
+            ['claim_summary','RESUMO DA PETIÇÃO INICIAL'],
+            ['controversy_delimitation','EXATA DELIMITAÇÃO DA CONTROVÉRSIA'],
+          ] as [AgravoAiField,string][]).map(([field,label]) => (
+            <div key={field} className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="vipaz-field-label mb-0">{label}</label>
+                <button type="button" onClick={()=>handleGenerateAiField(field)} disabled={Boolean(generatingAiField)} className="vipaz-ai-button">
+                  {generatingAiField===field?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Sparkles className="w-3.5 h-3.5"/>}
+                  {generatingAiField===field?'Gerando…':String(formData[field as keyof LegalFormData]||'').trim()?'Gerar novamente com IA':'Gerar com IA'}
+                </button>
+              </div>
               <textarea
-                rows={2}
+                rows={field==='executive_summary'?6:10}
                 disabled={isSubmitting}
-                value={formData.executive_summary}
-                onChange={(e) => updateField('executive_summary', e.target.value)}
-                placeholder="Síntese da tese defensiva e enquadramento regulatório do caso."
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                value={String(formData[field as keyof LegalFormData]||'')}
+                onChange={e=>updateField(field as keyof LegalFormData,e.target.value as never)}
+                className="vipaz-input resize-y leading-6 min-h-[160px]"
+                placeholder="O texto gerado aparecerá aqui e permanecerá totalmente editável."
               />
-              {clientErrors.executive_summary && (
-                <p className="text-[11px] text-rose-400 mt-0.5">{clientErrors.executive_summary}</p>
-              )}
+              {clientErrors[field] && <p className="text-[11px] text-rose-600 dark:text-rose-300">{clientErrors[field]}</p>}
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                RESUMO DA PETIÇÃO INICIAL <span className="text-cyan-400">*</span>
-              </label>
-              <textarea
-                rows={2}
-                disabled={isSubmitting}
-                value={formData.claim_summary}
-                onChange={(e) => updateField('claim_summary', e.target.value)}
-                placeholder="Principais alegações fáticas e pedidos formulados pela parte adversa."
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
-              />
-              {clientErrors.claim_summary && (
-                <p className="text-[11px] text-rose-400 mt-0.5">{clientErrors.claim_summary}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                EXATA DELIMITAÇÃO DA CONTROVÉRSIA <span className="text-cyan-400">*</span>
-              </label>
-              <textarea
-                rows={2}
-                disabled={isSubmitting}
-                value={formData.controversy_delimitation}
-                onChange={(e) => updateField('controversy_delimitation', e.target.value)}
-                placeholder="Ponto de atrito central (ex: legalidade do reajuste por sinistralidade em contrato PME)."
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
-              />
-              {clientErrors.controversy_delimitation && (
-                <p className="text-[11px] text-rose-400 mt-0.5">
-                  {clientErrors.controversy_delimitation}
-                </p>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* SEÇÃO 07: TUTELA & DANO MORAL */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 07
               </span>
               <span>Tutela de Urgência & Dano Moral</span>
@@ -1313,70 +1303,38 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
             <span className="text-[11px] text-cyan-400 font-mono">Seleção do caso</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* TUTELA */}
-            <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-300">
-                SITUAÇÃO DA TUTELA DE URGÊNCIA <span className="text-cyan-400">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['not_requested', 'denied', 'granted'] as const).map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => updateField('injunction_status', st)}
-                    className={`py-2 px-2 rounded-xl border text-xs font-medium transition ${
-                      formData.injunction_status === st
-                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {st === 'not_requested' && 'Não Requerida'}
-                    {st === 'denied' && 'Indeferida'}
-                    {st === 'granted' && 'Deferida'}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3.5 rounded-xl border vipaz-border vipaz-surface-subtle space-y-2">
+              <div className="font-semibold vipaz-text-primary">Tutela de Urgência</div>
+              <p className="text-[11px] vipaz-text-muted">Situação do pedido de tutela de urgência no processo.</p>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                {(['not_requested','denied','granted'] as const).map(st=>(
+                  <button key={st} type="button" onClick={()=>updateField('injunction_status',st)}
+                    className={`py-1.5 px-2 rounded-lg border text-[11px] transition ${formData.injunction_status===st?'bg-cyan-500/15 border-cyan-500/60 text-cyan-800 dark:text-cyan-100 font-semibold':'vipaz-surface vipaz-border vipaz-text-secondary'}`}>
+                    {st==='not_requested'?'Não Requerida':st==='denied'?'Indeferida':'Deferida'}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* DANO MORAL */}
-            <div className="space-y-3">
-              <label className="block text-xs font-medium text-slate-300">
-                PLEITO DE INDENIZAÇÃO POR DANO MORAL <span className="text-cyan-400">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => updateField('moral_damages_status', 'not_claimed')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
-                    formData.moral_damages_status === 'not_claimed'
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Não Pleiteado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateField('moral_damages_status', 'claimed')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-medium transition ${
-                    formData.moral_damages_status === 'claimed'
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Foi Pleiteado
-                </button>
+            <div className="p-3.5 rounded-xl border vipaz-border vipaz-surface-subtle space-y-2">
+              <div className="font-semibold vipaz-text-primary">Dano Moral</div>
+              <p className="text-[11px] vipaz-text-muted">Indique se há pedido de indenização por dano moral.</p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button type="button" onClick={()=>updateField('moral_damages_status','not_claimed')}
+                  className={`py-1.5 rounded-lg border text-[11px] transition ${formData.moral_damages_status==='not_claimed'?'bg-slate-800 dark:bg-slate-200 border-slate-800 dark:border-slate-200 text-white dark:text-slate-950 font-semibold':'vipaz-surface vipaz-border vipaz-text-secondary'}`}>Não Pleiteado</button>
+                <button type="button" onClick={()=>updateField('moral_damages_status','claimed')}
+                  className={`py-1.5 rounded-lg border text-[11px] transition ${formData.moral_damages_status==='claimed'?'bg-cyan-500/15 border-cyan-500/60 text-cyan-800 dark:text-cyan-100 font-semibold':'vipaz-surface vipaz-border vipaz-text-secondary'}`}>Foi Pleiteado</button>
               </div>
             </div>
           </div>
+        </div>/div>
         </div>
 
         {/* SEÇÃO 08: PRELIMINARES & PREJUDICIAIS */}
-        <div className="p-6 rounded-2xl bg-[#0B1325] border border-slate-800 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded bg-slate-800 text-cyan-400 flex items-center justify-center font-mono text-[10px]">
+        <div className="p-6 rounded-2xl vipaz-card space-y-5">
+          <div className="flex items-center justify-between border-b vipaz-border-subtle pb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider vipaz-text-primary flex items-center gap-2">
+              <span className="w-5 h-5 rounded vipaz-surface-subtle vipaz-text-brand flex items-center justify-center font-mono text-[10px]">
                 08
               </span>
               <span>Preliminares & Prejudiciais de Mérito</span>

@@ -24,9 +24,16 @@ const FIELD_GUIDANCE: Record<string,string> = {
   appeal_final_requests: 'Redija DOS REQUERIMENTOS FINAIS em ordem lógica: conhecimento; efeito suspensivo; comunicação ao juízo quando pertinente; provimento final; contracautela somente se autorizada; medidas coercitivas somente se efetivamente existentes.',
 };
 
-function buildSystemInstruction(field:string) {
+function buildSystemInstruction(field:string, documentPiece?:string) {
+  const isContestacao = documentPiece === 'Contestação';
+  const contestacaoGuidance: Record<string,string> = {
+    executive_summary: 'Redija EMENTA EXECUTIVA com no máximo 2.000 caracteres, abertura temática em caixa alta e itens numerados, aderente à defesa e aos autos.',
+    claim_summary: 'Redija o tópico DO RESUMO DA INICIAL, sintetizando fielmente fatos, fundamentos e pedidos efetivamente identificados na petição inicial e nos autos.',
+    controversy_delimitation: 'Redija o tópico DA EXATA DELIMITAÇÃO DA CONTROVÉRSIA, delimitando objetivamente o que se discute, a posição defensiva e os pontos jurídicos efetivamente controvertidos.',
+  };
+  const guidance = isContestacao && contestacaoGuidance[field] ? contestacaoGuidance[field] : FIELD_GUIDANCE[field];
   return `Você é redator jurídico especializado em contencioso cível e saúde suplementar no VIPAZ Jurídico.
-Sua tarefa é produzir SOMENTE o conteúdo do campo solicitado de um Agravo de Instrumento, pronto para revisão humana.
+Sua tarefa é produzir SOMENTE o conteúdo do campo solicitado de uma ${isContestacao ? 'Contestação' : 'Agravo de Instrumento'}, pronto para revisão humana.
 
 REGRAS ABSOLUTAS:
 - Use exclusivamente os dados fornecidos no contexto. Não invente fatos, datas, documentos, contratos, valores, percentuais, decisões, prazos, multas, precedentes ou eventos processuais.
@@ -41,7 +48,7 @@ REGRAS ABSOLUTAS:
 - O usuário editará o texto antes da produção final.
 
 CAMPO: ${field}
-INSTRUÇÃO ESPECÍFICA: ${FIELD_GUIDANCE[field]}`;
+INSTRUÇÃO ESPECÍFICA: ${guidance}`;
 }
 
 async function validateSession(req:Request) {
@@ -58,10 +65,10 @@ export async function handleAgravoAiField(req:Request,res:Response) {
   try {
     if (!(await validateSession(req))) return res.status(401).json({error:'Sessão inválida ou expirada.'});
     const webhookUrl=process.env.AGRAVO_AI_N8N_WEBHOOK_URL;
-    if(!webhookUrl) return res.status(503).json({error:'Workflow de IA do Agravo ainda não configurado no servidor.'});
+    if(!webhookUrl) return res.status(503).json({error:'Workflow de IA ainda não configurado no servidor.'});
 
     const {field,context,source_pdf}=req.body||{};
-    if(!ALLOWED_FIELDS.has(field)) return res.status(400).json({error:'Campo de Agravo não autorizado para geração assistida.'});
+    if(!ALLOWED_FIELDS.has(field)) return res.status(400).json({error:'Campo não autorizado para geração assistida.'});
     if(!source_pdf?.base64 || source_pdf?.mime_type!=='application/pdf') return res.status(400).json({error:'Anexe os autos processuais em PDF antes de gerar conteúdo com IA.'});
     if(field==='appeal_countersecurity' && !context?.countersecurity_allowed) return res.status(400).json({error:'Contracautela não autorizada pelas regras do caso.'});
 
@@ -71,8 +78,10 @@ export async function handleAgravoAiField(req:Request,res:Response) {
       body:JSON.stringify({
         task:'generate_agravo_field',
         field,
-        field_guidance:FIELD_GUIDANCE[field],
-        system_instruction:buildSystemInstruction(field),
+        field_guidance: context?.document_piece === 'Contestação' && ['executive_summary','claim_summary','controversy_delimitation'].includes(field)
+          ? undefined
+          : FIELD_GUIDANCE[field],
+        system_instruction:buildSystemInstruction(field, context?.document_piece),
         context,
         source_pdf,
       })
