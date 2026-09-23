@@ -676,7 +676,7 @@ export const NovaPecaView: React.FC<NovaPecaViewProps> = ({
               <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
               <div>
                 <p className="font-semibold text-amber-300">
-                  Arquitetura ainda não homologada no MVP
+                  Fluxo final de produção ainda em configuração
                 </p>
                 <p className="text-[11px] text-amber-200/80 mt-0.5">
                   A peça processual selecionada (<strong>{formData.document_piece}</strong>) está em fase de modelagem de regras.
