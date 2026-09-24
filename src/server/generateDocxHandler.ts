@@ -15,7 +15,6 @@
 
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase.js';
 import {
   assembleDocumentFromSnapshot,
   getPhase41HomologatedSnapshot,
@@ -59,12 +58,18 @@ export async function handleGenerateDocx(req: Request, res: Response): Promise<v
       process.env.SUPABASE_ANON_KEY ||
       '';
 
-    const client = authHeader && supabaseUrl && supabaseAnonKey
-      ? createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: authHeader } },
-          auth: { persistSession: false },
-        })
-      : supabase;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      res.status(500).json({
+        success: false,
+        error: 'Configuração server-side do Supabase indisponível.',
+      });
+      return;
+    }
+
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      ...(authHeader ? { global: { headers: { Authorization: authHeader } } } : {}),
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     // 2. Localizar o generation_job e recuperar a organization_id autêntica
     let organizationId: string | null = null;
