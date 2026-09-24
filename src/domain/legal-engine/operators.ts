@@ -3,7 +3,7 @@
  * Avaliador de Operadores e Condições Lógicas
  */
 
-import { RuleCondition, OperatorType } from './types';
+import { RuleCondition, OperatorType } from './types.js';
 
 /**
  * Obtém valor aninhado ou simples de um objeto de dados
