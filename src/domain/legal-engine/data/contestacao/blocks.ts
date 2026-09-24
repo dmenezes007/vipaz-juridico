@@ -4,7 +4,7 @@
  * Fonte: Documento Homologado CAW Advogados Associados (46 páginas)
  */
 
-import { LegalBlock, FinalRequestItem } from '../../types';
+import { LegalBlock, FinalRequestItem } from '../../types.js';
 
 export const CONTESTACAO_BLOCKS: LegalBlock[] = [
   // ====================================================================
