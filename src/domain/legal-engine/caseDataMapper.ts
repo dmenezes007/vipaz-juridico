@@ -3,7 +3,7 @@
  * Mapeamento e Estruturação do Snapshot Jurídico (Fase 3)
  */
 
-import { LegalFormData, ResolvedDocumentAssembly } from './types';
+import { LegalFormData, ResolvedDocumentAssembly } from './types.js';
 
 /**
  * Constante técnica de versão do motor determinístico

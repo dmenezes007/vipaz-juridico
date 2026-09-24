@@ -18,7 +18,7 @@
  * NÃO altera schema ou dados no Supabase.
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 import {
   PersistedLegalCaseInput,
   BasicDataSnapshot,
@@ -31,7 +31,7 @@ import {
   mapCustomTexts,
   extractDerivedVariables,
   buildResolvedArchitectureSnapshot,
-} from '../domain/legal-engine/caseDataMapper';
+} from '../domain/legal-engine/caseDataMapper.js';
 import {
   LegalBlock,
   FinalRequestItem,
@@ -39,21 +39,21 @@ import {
   RuleEvaluationResult,
   UfType,
   LegalFormData,
-} from '../domain/legal-engine/types';
+} from '../domain/legal-engine/types.js';
 import {
   getUfDerivations,
   formatDataExtenso,
   interpolateVariables,
   renumberRequests,
-} from '../domain/legal-engine/architectureResolver';
-import { CONTESTACAO_PME_ARCHITECTURE } from '../domain/legal-engine/data/contestacao/architecture';
+} from '../domain/legal-engine/architectureResolver.js';
+import { CONTESTACAO_PME_ARCHITECTURE } from '../domain/legal-engine/data/contestacao/architecture.js';
 import {
   CONTESTACAO_BLOCKS,
   CONTESTACAO_FINAL_REQUESTS,
-} from '../domain/legal-engine/data/contestacao/blocks';
-import { HOMOLOGATED_CASE_DEFAULTS } from '../domain/legal-engine/formDefinitions';
-import { ruleEngine } from '../domain/legal-engine/ruleEngine';
-import { documentRenderer } from './documentRenderer';
+} from '../domain/legal-engine/data/contestacao/blocks.js';
+import { HOMOLOGATED_CASE_DEFAULTS } from '../domain/legal-engine/formDefinitions.js';
+import { ruleEngine } from '../domain/legal-engine/ruleEngine.js';
+import { documentRenderer } from './documentRenderer.js';
 
 export const OFFICIAL_HOMOLOGATED_JOB_ID = '68295857-6408-40b2-8768-17c09a6988ec';
 export const OFFICIAL_HOMOLOGATED_INPUT_ID = '454b44b2-360e-4866-adff-eee6173aeec5';

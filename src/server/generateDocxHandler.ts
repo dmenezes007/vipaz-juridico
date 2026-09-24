@@ -15,16 +15,16 @@
 
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js';
 import {
   assembleDocumentFromSnapshot,
   getPhase41HomologatedSnapshot,
   loadCaseSnapshot,
   OFFICIAL_HOMOLOGATED_JOB_ID,
   OFFICIAL_HOMOLOGATED_INPUT_ID,
-} from '../services/experimentalDocxService';
-import { buildCawDocxPayload } from '../domain/legal-engine/documentPayloadMapper';
-import { PersistedLegalCaseInput } from '../domain/legal-engine/caseDataMapper';
+} from '../services/experimentalDocxService.js';
+import { buildCawDocxPayload } from '../domain/legal-engine/documentPayloadMapper.js';
+import { PersistedLegalCaseInput } from '../domain/legal-engine/caseDataMapper.js';
 
 const DEFAULT_N8N_DOCX_WEBHOOK_URL =
   'https://agencia-asserto.app.n8n.cloud/webhook/vipaz/caw/docx';

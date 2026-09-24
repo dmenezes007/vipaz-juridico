@@ -14,9 +14,9 @@
  *   e toda a estrutura documental consumida pelo template Carbone.
  */
 
-import { ResolvedDocumentAssembly } from './types';
-import { buildDeterministicDocxFilename } from '../../services/experimentalDocxService';
-import { formatDataExtenso } from './architectureResolver';
+import { ResolvedDocumentAssembly } from './types.js';
+import { buildDeterministicDocxFilename } from '../../services/experimentalDocxService.js';
+import { formatDataExtenso } from './architectureResolver.js';
 
 export interface CawDocxWorkflowPayload {
   // Metadados de rastreabilidade e infraestrutura

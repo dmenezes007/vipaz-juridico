@@ -130,7 +130,10 @@ export class DocxGenerationService {
       let errorDetails = '';
       try {
         const errorJson = await response.json();
-        errorDetails = errorJson.error || errorJson.message || JSON.stringify(errorJson);
+        const rawError = errorJson?.error ?? errorJson?.message ?? errorJson;
+        errorDetails = typeof rawError === 'string'
+          ? rawError
+          : JSON.stringify(rawError, null, 2);
       } catch {
         try {
           errorDetails = await response.text();
