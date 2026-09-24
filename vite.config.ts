@@ -2,7 +2,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, Plugin } from 'vite';
-import { handleGenerateDocx } from './src/server/generateDocxHandler';
 
 function apiProxyPlugin(): Plugin {
   return {
@@ -31,6 +30,7 @@ function apiProxyPlugin(): Plugin {
             try {
               const body = bodyStr ? JSON.parse(bodyStr) : {};
               (req as any).body = body;
+              const { handleGenerateDocx } = await import('./src/server/generateDocxHandler.js');
               await handleGenerateDocx(req as any, res as any);
             } catch (e: any) {
               res.statusCode = 500;
