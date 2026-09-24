@@ -14,7 +14,7 @@ import {
   PageNumber,
   Packer,
 } from 'docx';
-import { ResolvedDocumentAssembly } from '../domain/legal-engine/types';
+import { ResolvedDocumentAssembly } from '../domain/legal-engine/types.js';
 
 export class DocumentRenderer {
   /**
