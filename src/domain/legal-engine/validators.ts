@@ -3,8 +3,8 @@
  * Validações de Integridade do Formulário e da Peça
  */
 
-import { LegalFormData, ValidationError, ResolvedDocumentAssembly } from './types';
-import { isPieceHomologated } from './architectureRegistry';
+import { LegalFormData, ValidationError, ResolvedDocumentAssembly } from './types.js';
+import { isPieceHomologated } from './architectureRegistry.js';
 
 /**
  * Validação estrita do formulário da Nova Peça
