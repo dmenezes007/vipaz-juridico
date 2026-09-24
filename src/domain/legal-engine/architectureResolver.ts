@@ -12,10 +12,10 @@ import {
   LegalBlock,
   FinalRequestItem,
   UfType,
-} from './types';
-import { evaluateCondition, describeConditionReason } from './operators';
-import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture';
-import { getArchitectureForPiece } from './architectureRegistry';
+} from './types.js';
+import { evaluateCondition, describeConditionReason } from './operators.js';
+import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture.js';
+import { getArchitectureForPiece } from './architectureRegistry.js';
 
 /**
  * Converte data atual em extenso no formato padrão forense brasileiro
