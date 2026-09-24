@@ -3,7 +3,7 @@
  * Definições Declarativas do Formulário e Taxonomia da Lide
  */
 
-import { DocumentPieceMetadata, DocumentPieceType, LegalFormData } from './types';
+import { DocumentPieceMetadata, DocumentPieceType, LegalFormData } from './types.js';
 
 /**
  * Catálogo de Peças Processuais
