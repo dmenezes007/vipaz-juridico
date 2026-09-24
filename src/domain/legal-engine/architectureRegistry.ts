@@ -3,8 +3,8 @@
  * Registro e Gerenciador de Arquiteturas Processuais
  */
 
-import { DocumentPieceType, LegalArchitecture } from './types';
-import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture';
+import { DocumentPieceType, LegalArchitecture } from './types.js';
+import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture.js';
 
 /**
  * Mapeamento central de arquiteturas homologadas
