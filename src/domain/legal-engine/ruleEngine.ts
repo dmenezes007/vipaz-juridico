@@ -3,11 +3,11 @@
  * Motor de Regras e Orquestração do Domínio Jurídico
  */
 
-import { LegalFormData, ResolvedDocumentAssembly, ValidationError } from './types';
-import { validateLegalForm, validateAssemblyIntegrity } from './validators';
-import { resolveLegalArchitecture } from './architectureResolver';
-import { getArchitectureForPiece } from './architectureRegistry';
-import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture';
+import { LegalFormData, ResolvedDocumentAssembly, ValidationError } from './types.js';
+import { validateLegalForm, validateAssemblyIntegrity } from './validators.js';
+import { resolveLegalArchitecture } from './architectureResolver.js';
+import { getArchitectureForPiece } from './architectureRegistry.js';
+import { CONTESTACAO_PME_ARCHITECTURE } from './data/contestacao/architecture.js';
 
 export class RuleEngine {
   /**
