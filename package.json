@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx src/domain/legal-engine/__tests__/ruleEngine.test.ts && tsx src/domain/legal-engine/__tests__/snapshotPersistence.test.ts && tsx src/domain/legal-engine/__tests__/experimentalDocx.test.ts && tsx src/domain/legal-engine/__tests__/phase4_1_architecture.test.ts && tsx src/domain/legal-engine/__tests__/phase4_2_block_integrity.test.ts && tsx src/domain/legal-engine/__tests__/phase5_caw_integration.test.ts && tsx src/domain/legal-engine/__tests__/phase5_1_carbone_contract.test.ts && tsx src/domain/legal-engine/__tests__/phase5_2_caw_v2_sync.test.ts && tsx src/domain/legal-intelligence/__tests__/caseLegalModel.test.ts && tsx src/domain/legal-intelligence/__tests__/caseAnalystContract.test.ts",
+    "test": "tsx src/domain/legal-engine/__tests__/ruleEngine.test.ts && tsx src/domain/legal-engine/__tests__/snapshotPersistence.test.ts && tsx src/domain/legal-engine/__tests__/experimentalDocx.test.ts && tsx src/domain/legal-engine/__tests__/phase4_1_architecture.test.ts && tsx src/domain/legal-engine/__tests__/phase4_2_block_integrity.test.ts && tsx src/domain/legal-engine/__tests__/phase5_caw_integration.test.ts && tsx src/domain/legal-engine/__tests__/phase5_1_carbone_contract.test.ts && tsx src/domain/legal-engine/__tests__/phase5_2_caw_v2_sync.test.ts && tsx src/domain/legal-intelligence/__tests__/caseLegalModel.test.ts && tsx src/domain/legal-intelligence/__tests__/caseAnalystContract.test.ts && tsx src/domain/legal-intelligence/__tests__/caseSourceLoader.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
