@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { CaseAnalyst } from '../domain/legal-intelligence/caseAnalyst';
+import {
+  loadCaseSourceBundle,
+  type AuthorizedSourceDocument,
+} from './caseSourceLoader';
 
 function header(req: Request, name: string) {
   const value = (req as any)?.headers?.[name.toLowerCase()] ?? '';
@@ -34,8 +38,8 @@ async function authorizeCaseScope(
   processId: string,
   sourceDocumentIds: string[],
 ) {
-  // These reads intentionally use the caller's JWT. Supabase RLS remains the
-  // source of truth for tenant isolation; no service-role bypass is used.
+  // Reads use the caller's JWT. RLS remains the source of truth for tenant
+  // isolation; this endpoint never uses a service-role bypass.
   const { data: membership, error: membershipError } = await auth.client
     .from('organization_members')
     .select('organization_id,user_id')
@@ -56,7 +60,7 @@ async function authorizeCaseScope(
 
   const { data: documents, error: documentsError } = await auth.client
     .from('source_documents')
-    .select('id,organization_id,process_id')
+    .select('id,organization_id,process_id,file_name,storage_path,mime_type')
     .eq('organization_id', organizationId)
     .eq('process_id', processId)
     .in('id', sourceDocumentIds);
@@ -65,12 +69,42 @@ async function authorizeCaseScope(
     return { authorized: false as const, reason: 'documents' };
   }
 
-  const authorizedIds = new Set(documents.map((document) => String(document.id)));
-  if (sourceDocumentIds.some((id) => !authorizedIds.has(id))) {
+  const byId = new Map(documents.map((document) => [String(document.id), document]));
+  if (sourceDocumentIds.some((id) => !byId.has(id))) {
     return { authorized: false as const, reason: 'documents' };
   }
 
-  return { authorized: true as const };
+  const authorizedDocuments: AuthorizedSourceDocument[] = sourceDocumentIds.map((id) => {
+    const document = byId.get(id)!;
+    return {
+      id: String(document.id),
+      fileName: String(document.file_name || id),
+      mimeType: String(document.mime_type || ''),
+      storagePath: String(document.storage_path || ''),
+    };
+  });
+
+  return { authorized: true as const, documents: authorizedDocuments };
+}
+
+function sourceLoadHttpError(error: unknown) {
+  const code = error instanceof Error ? error.message : String(error);
+  if (code === 'source_document_too_large') {
+    return { status: 413, error: 'Os autos excedem o limite seguro desta etapa de análise.' };
+  }
+  if (code.startsWith('source_pdf_extractor_not_configured:')) {
+    return {
+      status: 503,
+      error: 'Extração server-side de PDF ainda não configurada. A análise permaneceu bloqueada com segurança.',
+    };
+  }
+  if (code.startsWith('source_document_type_not_supported:')) {
+    return { status: 415, error: 'Tipo de documento ainda não suportado pelo Case Analyst.' };
+  }
+  if (code.startsWith('source_document_download_failed:') || code.startsWith('source_document_empty:')) {
+    return { status: 422, error: 'Não foi possível obter material probatório utilizável dos documentos autorizados.' };
+  }
+  return null;
 }
 
 export async function handleCaseAnalysis(req: Request, res: Response) {
@@ -88,28 +122,31 @@ export async function handleCaseAnalysis(req: Request, res: Response) {
     const organizationId = String(body.organization_id || '').trim();
     const processId = String(body.matter_id || '').trim();
     const documentPiece = String(body.document_piece || '').trim();
-    const sourceMaterial = String(body.source_material || '').trim();
     const sourceDocumentIds = Array.isArray(body.source_document_ids)
       ? [...new Set(body.source_document_ids.map(String).map((id: string) => id.trim()).filter(Boolean))]
       : [];
 
-    if (!organizationId || !processId || !documentPiece || !sourceMaterial || sourceDocumentIds.length === 0) {
+    // source_material is deliberately ignored. Evidentiary text must originate
+    // server-side from source_documents already authorized for this tenant/case.
+    if (!organizationId || !processId || !documentPiece || sourceDocumentIds.length === 0) {
       return res.status(400).json({ error: 'Contexto documental insuficiente para análise.' });
-    }
-
-    if (sourceMaterial.length > 2_000_000) {
-      return res.status(413).json({ error: 'Material textual excede o limite permitido para esta etapa.' });
     }
 
     const scope = await authorizeCaseScope(auth, organizationId, processId, sourceDocumentIds);
     if (!scope.authorized) {
-      // Deliberately avoid revealing whether another tenant's resource exists.
       return res.status(403).json({ error: 'Acesso ao contexto processual não autorizado.' });
     }
 
-    // IMPORTANT: sourceMaterial is still transitional client-supplied text.
-    // The engine remains disabled by default until server-side extraction from
-    // the authorized source_documents above replaces this input.
+    let sourceMaterial: string;
+    try {
+      const bundle = await loadCaseSourceBundle(auth.client, scope.documents);
+      sourceMaterial = bundle.sourceMaterial;
+    } catch (error) {
+      const mapped = sourceLoadHttpError(error);
+      if (mapped) return res.status(mapped.status).json({ error: mapped.error });
+      throw error;
+    }
+
     const { OpenAiCaseAnalystProvider } = await import('./openAiCaseAnalystProvider.js');
     const analyst = new CaseAnalyst(new OpenAiCaseAnalystProvider());
     const result = await analyst.run({
