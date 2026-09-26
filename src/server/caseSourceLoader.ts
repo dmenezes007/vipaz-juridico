@@ -12,6 +12,13 @@ export interface CaseSourceBundle {
   documents: AuthorizedSourceDocument[];
 }
 
+export interface PdfExtractionResult {
+  totalPages: number;
+  pages: string[];
+}
+
+export type PdfTextExtractor = (blob: Blob) => Promise<PdfExtractionResult>;
+
 const SOURCE_BUCKET = 'source-documents';
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 40 * 1024 * 1024;
@@ -33,14 +40,12 @@ function isPdf(document: AuthorizedSourceDocument) {
   return normalizeMimeType(document.mimeType) === 'application/pdf' || document.fileName.toLowerCase().endsWith('.pdf');
 }
 
-async function extractPdfText(blob: Blob) {
+export const defaultPdfTextExtractor: PdfTextExtractor = async (blob) => {
   const { extractText, getDocumentProxy } = await import('unpdf');
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const pdf = await getDocumentProxy(bytes);
 
-  if (pdf.numPages > MAX_PDF_PAGES) {
-    throw new Error('source_pdf_too_many_pages');
-  }
+  if (pdf.numPages > MAX_PDF_PAGES) throw new Error('source_pdf_too_many_pages');
 
   const extraction = await Promise.race([
     extractText(pdf, { mergePages: false }),
@@ -49,22 +54,13 @@ async function extractPdfText(blob: Blob) {
     ),
   ]);
 
-  const pages = Array.isArray(extraction.text) ? extraction.text : [extraction.text];
-  const normalizedPages = pages.map((page, index) => {
-    const text = String(page || '').trim();
-    return `[PAGE: ${index + 1}]\\n${text}`;
-  });
-  const sourceMaterial = normalizedPages.join('\\n\\n');
+  const pages = Array.isArray(extraction.text) ? extraction.text.map((page) => String(page || '').trim()) : [String(extraction.text || '').trim()];
+  const extractedChars = pages.reduce((total, page) => total + page.length, 0);
+  if (!pages.some(Boolean)) throw new Error('source_pdf_text_not_extractable');
+  if (extractedChars > MAX_EXTRACTED_CHARS_PER_DOCUMENT) throw new Error('source_pdf_extracted_text_too_large');
 
-  if (!sourceMaterial.replace(/\\[PAGE: \\d+\\]\\s*/g, '').trim()) {
-    throw new Error('source_pdf_text_not_extractable');
-  }
-  if (sourceMaterial.length > MAX_EXTRACTED_CHARS_PER_DOCUMENT) {
-    throw new Error('source_pdf_extracted_text_too_large');
-  }
-
-  return { totalPages: pdf.numPages, sourceMaterial };
-}
+  return { totalPages: pdf.numPages, pages };
+};
 
 async function readTextBlob(blob: Blob) {
   if (blob.size > MAX_DOCUMENT_BYTES) throw new Error('source_document_too_large');
@@ -74,11 +70,13 @@ async function readTextBlob(blob: Blob) {
 export async function loadCaseSourceBundle(
   client: SupabaseClient,
   documents: AuthorizedSourceDocument[],
+  options: { pdfTextExtractor?: PdfTextExtractor } = {},
 ): Promise<CaseSourceBundle> {
   if (documents.length === 0) throw new Error('source_document_required');
 
   let totalBytes = 0;
   const sections: string[] = [];
+  const pdfTextExtractor = options.pdfTextExtractor || defaultPdfTextExtractor;
 
   for (const document of documents) {
     const { data, error } = await client.storage.from(SOURCE_BUCKET).download(document.storagePath);
@@ -101,12 +99,13 @@ export async function loadCaseSourceBundle(
     }
 
     if (isPdf(document)) {
-      const extracted = await extractPdfText(data);
+      const extracted = await pdfTextExtractor(data);
+      const pages = extracted.pages.map((text, index) => `[PAGE: ${index + 1}]\\n${text}`).join('\\n\\n');
       sections.push([
         `[DOCUMENT_ID: ${document.id}]`,
         `[DOCUMENT_NAME: ${document.fileName}]`,
         `[DOCUMENT_PAGES: ${extracted.totalPages}]`,
-        extracted.sourceMaterial,
+        pages,
       ].join('\\n'));
       continue;
     }
