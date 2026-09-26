@@ -99,17 +99,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         <section className="pt-40 pb-20 px-6">
           <div className="mx-auto max-w-[1180px] grid lg:grid-cols-12 gap-14 items-end">
             <div className="lg:col-span-8">
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-cyan-300"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse"/>Inteligência jurídica institucional</div>
-              <h1 className="max-w-[900px] text-[clamp(3.3rem,7.3vw,7.2rem)] leading-[.91] tracking-[-.055em] font-semibold">Do contexto jurídico<br/><span className="text-white/35">ao documento.</span></h1>
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-cyan-300"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse"/>Inteligência estratégica · produção jurídica · governança</div>
+              <h1 className="max-w-[900px] text-[clamp(3.3rem,7.3vw,7.2rem)] leading-[.91] tracking-[-.055em] font-semibold">Inteligência para decidir.<br/><span className="text-white/35">Produção para agir.</span></h1>
             </div>
             <div className="lg:col-span-4 lg:pb-3">
-              <p className="text-[15px] leading-7 text-white/55 max-w-sm">O VIPAZ organiza autos e documentos de apoio, estrutura fatos e questões jurídicas, transforma conhecimento institucional em estratégia e conduz a produção de peças jurídicas revisáveis e editáveis.</p>
+              <p className="text-[15px] leading-7 text-white/55 max-w-sm">O VIPAZ conecta inteligência estratégica, produção jurídica orientada, gestão otimizada de dados e conhecimento institucional — com tecnologia sob governança e o advogado no centro das decisões.</p>
               <button onClick={()=>onNavigate('/login')} className="mt-8 inline-flex items-center gap-3 text-[13px] font-semibold group">Conhecer a plataforma <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition"><ArrowRight className="w-4 h-4"/></span></button>
             </div>
           </div>
 
           <div className="mx-auto max-w-[1180px] mt-20 grid grid-cols-2 md:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/[.07] bg-white/[.07]">
-            {[['01','Contexto documental'],['02','Estratégia jurídica'],['03','Revisão profissional'],['04','Documento editável']].map(([n,label])=><div key={n} className="bg-[#0a0e14] px-5 py-4 flex items-center gap-3"><span className="text-[10px] font-mono text-cyan-300/70">{n}</span><span className="text-[11px] text-white/55">{label}</span></div>)}
+            {[['01','Inteligência estratégica'],['02','Produção orientada'],['03','Dados governados'],['04','Advogado no centro']].map(([n,label])=><div key={n} className="bg-[#0a0e14] px-5 py-4 flex items-center gap-3"><span className="text-[10px] font-mono text-cyan-300/70">{n}</span><span className="text-[11px] text-white/55">{label}</span></div>)}
           </div>
         </section>
 
@@ -134,6 +134,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </div>
         </section>
 
+        <section className="px-6 py-24 border-y border-white/[.07]">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="max-w-3xl">
+              <div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-3">Arquitetura de valor</div>
+              <h2 className="text-3xl sm:text-5xl tracking-[-.04em] font-semibold">Não é apenas IA. É uma camada de inteligência sobre a operação jurídica.</h2>
+              <p className="mt-5 max-w-2xl text-[13px] leading-6 text-white/40">O VIPAZ foi concebido para organizar a informação antes de transformá-la em ação: dados contextualizados, inteligência estratégica, produção orientada e governança profissional em um mesmo fluxo.</p>
+            </div>
+            <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-px bg-white/[.08] border border-white/[.08] rounded-2xl overflow-hidden">
+              <div key="01" className="bg-[#0d1118] p-7">
+                <span className="text-[10px] font-mono text-cyan-300/70">01</span>
+                <h3 className="mt-8 text-[16px] font-semibold">Inteligência estratégica</h3>
+                <p className="mt-3 text-[12px] leading-5 text-white/40">Fatos, evidências, controvérsias e questões jurídicas estruturados para apoiar decisões.</p>
+              </div><div key="02" className="bg-[#0d1118] p-7">
+                <span className="text-[10px] font-mono text-cyan-300/70">02</span>
+                <h3 className="mt-8 text-[16px] font-semibold">Produção orientada</h3>
+                <p className="mt-3 text-[12px] leading-5 text-white/40">Teses, arquiteturas e documentos construídos a partir do contexto e do conhecimento validado.</p>
+              </div><div key="03" className="bg-[#0d1118] p-7">
+                <span className="text-[10px] font-mono text-cyan-300/70">03</span>
+                <h3 className="mt-8 text-[16px] font-semibold">Dados governados</h3>
+                <p className="mt-3 text-[12px] leading-5 text-white/40">Fontes, documentos, eventos e histórico organizados para reduzir ruído e preservar rastreabilidade.</p>
+              </div><div key="04" className="bg-[#0d1118] p-7">
+                <span className="text-[10px] font-mono text-cyan-300/70">04</span>
+                <h3 className="mt-8 text-[16px] font-semibold">Governança profissional</h3>
+                <p className="mt-3 text-[12px] leading-5 text-white/40">IA assistida, revisão humana e pontos de controle explícitos antes da decisão e da entrega.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="px-6 py-20">
           <div className="mx-auto max-w-[1180px]">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
@@ -150,7 +179,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           <div className="mx-auto max-w-[1180px]">
             <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-5">
               <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-3">Fluxo de produção</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Entenda como o VIPAZ trabalha.</h2></div>
-              <p className="max-w-md text-[13px] leading-6 text-white/40">Explore cada etapa. O fluxo avança automaticamente ou pode ser controlado por você.</p>
+              <p className="max-w-md text-[13px] leading-6 text-white/40">O sistema organiza o trabalho e acelera o que é repetitivo; o profissional define, revisa e valida o que importa.</p>
             </div>
             <div className="grid md:grid-cols-4 gap-px bg-white/[.08] border border-white/[.08] rounded-2xl overflow-hidden">
               {journey.map((item,i)=><button key={item.name} onClick={()=>{setActiveStep(i);setAutoPlay(false)}} className={`group text-left p-6 min-h-32 flex flex-col justify-between transition ${activeStep===i?'bg-cyan-300/[.08]':'bg-[#080b10] hover:bg-white/[.025]'}`}><div className="flex justify-between"><span className={`text-[10px] font-mono ${activeStep===i?'text-cyan-300':'text-white/25'}`}>0{i+1}</span>{activeStep===i&&<span className="h-1.5 w-1.5 rounded-full bg-cyan-300"/>}</div><div className="flex items-center justify-between"><span className="text-[16px] font-medium">{item.name}</span><ChevronRight className={`w-4 h-4 transition ${activeStep===i?'text-cyan-300 translate-x-0':'text-white/15 -translate-x-1 group-hover:translate-x-0'}`}/></div></button>)}
@@ -166,8 +195,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         <section className="px-6 py-28">
           <div className="mx-auto max-w-[1180px]">
             <div className="grid lg:grid-cols-12 gap-12 mb-14">
-              <h2 className="lg:col-span-7 text-4xl sm:text-5xl tracking-[-.04em] font-semibold">Um sistema jurídico.<br/><span className="text-white/35">Cinco módulos conectados.</span></h2>
-              <p className="lg:col-span-4 lg:col-start-9 text-sm leading-6 text-white/45">Passe o cursor ou selecione um módulo para entender seu papel dentro do ciclo de trabalho.</p>
+              <h2 className="lg:col-span-7 text-4xl sm:text-5xl tracking-[-.04em] font-semibold">Uma operação jurídica conectada.<br/><span className="text-white/35">Cinco módulos, uma inteligência.</span></h2>
+              <p className="lg:col-span-4 lg:col-start-9 text-sm leading-6 text-white/45">Cada módulo resolve uma parte da operação. Juntos, eles formam um fluxo contínuo de contexto, inteligência, produção, entrega e conhecimento.</p>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 border-y border-white/10">
               {modules.map((item,i)=>{const Icon=item.icon;const active=activeModule===i;return <button key={item.name} onMouseEnter={()=>setActiveModule(i)} onFocus={()=>setActiveModule(i)} onClick={()=>setActiveModule(i)} className={`text-left py-7 px-5 first:pl-0 border-b lg:border-b-0 lg:border-r last:border-r-0 border-white/10 transition ${active?'bg-white/[.025]':''}`}><div className="flex justify-between items-start"><Icon className={`w-4 h-4 mb-10 ${active?'text-cyan-300':'text-white/35'}`}/><span className="text-[9px] uppercase tracking-wider text-white/20">{item.verb}</span></div><h3 className="text-[15px] font-semibold">{item.name}</h3><p className={`mt-2 text-[12px] leading-5 transition ${active?'text-white/60':'text-white/35'}`}>{item.desc}</p></button>})}
@@ -177,17 +206,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         <section className="px-6 pb-28">
           <div className="mx-auto max-w-[1180px] rounded-[28px] bg-[#0d1118] border border-white/[.07] p-8 sm:p-12 lg:p-16 grid lg:grid-cols-2 gap-14">
-            <div><ShieldCheck className="w-5 h-5 text-cyan-300 mb-8"/><div className="text-[10px] uppercase tracking-[.16em] text-white/30 mb-3">Controle profissional</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Tecnologia sem tirar o profissional do centro.</h2><p className="mt-5 text-[13px] leading-6 text-white/40 max-w-md">Automação e IA entram onde agregam velocidade e estrutura. Decisão, revisão e validação permanecem visíveis e controláveis.</p></div>
+            <div><ShieldCheck className="w-5 h-5 text-cyan-300 mb-8"/><div className="text-[10px] uppercase tracking-[.16em] text-white/30 mb-3">Controle profissional</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Governança centrada no advogado.</h2><p className="mt-5 text-[13px] leading-6 text-white/40 max-w-md">A tecnologia organiza dados, sugere caminhos e acelera a produção. A decisão jurídica permanece explícita, revisável e sob responsabilidade profissional.</p></div>
             <div className="space-y-5 text-[13px] text-white/50">
-              {['Contexto documental com fontes identificáveis.','Arquiteturas e modelos jurídicos validados.','Inteligência artificial assistida e editável.','Revisão da estrutura antes da produção documental.','Conhecimento institucional preservado para reutilização.'].map((x,i)=><div key={x} className="group flex gap-4 border-b border-white/[.07] pb-5"><span className="text-[10px] font-mono text-white/20">0{i+1}</span><Check className="w-4 h-4 text-cyan-300 shrink-0"/><span className="group-hover:text-white/75 transition">{x}</span></div>)}
+              {['Contexto e dados com fontes identificáveis.','Inteligência estratégica orientada ao caso.','Produção jurídica assistida e editável.','Revisão e validação antes da entrega.','Conhecimento institucional governado e reutilizável.'].map((x,i)=><div key={x} className="group flex gap-4 border-b border-white/[.07] pb-5"><span className="text-[10px] font-mono text-white/20">0{i+1}</span><Check className="w-4 h-4 text-cyan-300 shrink-0"/><span className="group-hover:text-white/75 transition">{x}</span></div>)}
             </div>
           </div>
         </section>
 
         <section className="px-6 py-28 border-t border-white/[.07]">
           <div className="mx-auto max-w-[1180px] flex flex-col lg:flex-row lg:items-end justify-between gap-10">
-            <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-4">VIPAZ Jurídico</div><h2 className="text-4xl sm:text-6xl tracking-[-.05em] font-semibold">Conhecimento em contexto.<br/><span className="text-white/35">Estratégia em documento.</span></h2></div>
-            <div className="max-w-sm"><p className="text-[13px] leading-6 text-white/45">Entre no ambiente de trabalho e transforme contexto jurídico em produção consistente, rastreável e pronta para revisão.</p><button onClick={()=>onNavigate('/login')} className="mt-7 inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-black hover:bg-cyan-100 transition">Acessar VIPAZ Jurídico <ArrowRight className="w-4 h-4"/></button></div>
+            <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-4">VIPAZ Jurídico</div><h2 className="text-4xl sm:text-6xl tracking-[-.05em] font-semibold">Dados em contexto.<br/><span className="text-white/35">Estratégia em ação.</span></h2></div>
+            <div className="max-w-sm"><p className="text-[13px] leading-6 text-white/45">Organize a operação jurídica, transforme informação em inteligência e conduza cada produção com rastreabilidade, revisão e controle.</p><button onClick={()=>onNavigate('/login')} className="mt-7 inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-black hover:bg-cyan-100 transition">Acessar VIPAZ Jurídico <ArrowRight className="w-4 h-4"/></button></div>
           </div>
         </section>
       </main>
