@@ -11,6 +11,7 @@ import { CasosListView } from './views/CasosListView';
 import { CaseWorkspaceView } from './views/case-workspace/CaseWorkspaceView';
 import { BibliotecaView } from './views/BibliotecaView';
 import { IndicadoresView } from './views/IndicadoresView';
+import { MonitorView } from './views/MonitorView';
 import { AdminToolsView } from './views/AdminToolsView';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ShieldAlert, LogOut, ArrowRight, Loader2 } from 'lucide-react';
@@ -275,6 +276,26 @@ function AppContent() {
           onSwitchTenant={handleSwitchTenant}
         >
           <CasosListView
+            organization={currentOrg}
+            onNavigate={navigate}
+          />
+        </AppShell>
+      );
+    }
+
+    // Match /app/:slug/monitor
+    const monitorMatch = currentPath.match(/^\/app\/([a-zA-Z0-9_-]+)\/monitor$/);
+    if (monitorMatch) {
+      return (
+        <AppShell
+          currentPath={currentPath}
+          onNavigate={navigate}
+          organization={currentOrg}
+          user={session.user}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        >
+          <MonitorView
             organization={currentOrg}
             onNavigate={navigate}
           />
