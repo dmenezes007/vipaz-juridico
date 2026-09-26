@@ -28,10 +28,39 @@ const bundle = await loadCaseSourceBundle(clientFor(new Blob(['Processo 123. Fat
 assert.match(bundle.sourceMaterial, /DOCUMENT_ID: doc-1/);
 assert.match(bundle.sourceMaterial, /Processo 123/);
 
-const pdfBytes = Uint8Array.from(Buffer.from('JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSCj4+CmVuZG9iago2IDAgb2JqCjw8Ci9Db3VudCAxIC9LaWRzIFsgMyAwIFIgXSAvVHlwZSAvUGFnZXMKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0NvbnRlbnRzIDcgMCBSIC9NZWRpYUJveCBbIDAgMCAzMDAgMzAwIF0gL1BhcmVudCA2IDAgUiAvUmVzb3VyY2VzIDw8Ci9Gb250IDEgMCBSCj4+IC9UeXBlIC9QYWdlCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9QYWdlTW9kZSAvVXNlTm9uZSAvUGFnZXMgNiAwIFIgL1R5cGUgL0NhdGFsb2cKPj4KZW5kb2JqCjEgMCBvYmoKPDwKL0YxIDIgMCBSCj4+CmVuZG9iago=', 'base64'));
-const pdfDocument = { ...document, fileName: 'autos.pdf', mimeType: 'application/pdf', storagePath: 'org/process/job/autos.pdf' };
-const pdfBundle = await loadCaseSourceBundle(clientFor(new Blob([pdfBytes]), pdfDocument.storagePath), [pdfDocument]);
+const pdfDocument = {
+  ...document,
+  fileName: 'autos.pdf',
+  mimeType: 'application/pdf',
+  storagePath: 'org/process/job/autos.pdf',
+};
+const pdfBundle = await loadCaseSourceBundle(
+  clientFor(new Blob(['%PDF-1.7']), pdfDocument.storagePath),
+  [pdfDocument],
+  {
+    pdfTextExtractor: async () => ({
+      totalPages: 2,
+      pages: ['Processo 3001903-61.2026.8.19.0209', 'Documento probatorio.'],
+    }),
+  },
+);
 assert.match(pdfBundle.sourceMaterial, /DOCUMENT_ID: doc-1/);
+assert.match(pdfBundle.sourceMaterial, /DOCUMENT_PAGES: 2/);
 assert.match(pdfBundle.sourceMaterial, /PAGE: 1/);
+assert.match(pdfBundle.sourceMaterial, /PAGE: 2/);
+assert.match(pdfBundle.sourceMaterial, /3001903-61.2026.8.19.0209/);
+
+await assert.rejects(
+  () => loadCaseSourceBundle(
+    new Proxy(clientFor(new Blob(['%PDF-1.7']), pdfDocument.storagePath), {
+      get(target, prop) {
+        return (target as any)[prop];
+      },
+    }),
+    [pdfDocument],
+    { pdfTextExtractor: async () => { throw new Error('source_pdf_text_not_extractable'); } },
+  ),
+  /source_pdf_text_not_extractable/,
+);
 
 console.log('✓ case source loader contract');
