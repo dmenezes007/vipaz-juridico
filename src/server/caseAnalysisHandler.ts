@@ -92,11 +92,14 @@ function sourceLoadHttpError(error: unknown) {
   if (code === 'source_document_too_large') {
     return { status: 413, error: 'Os autos excedem o limite seguro desta etapa de análise.' };
   }
-  if (code.startsWith('source_pdf_extractor_not_configured:')) {
-    return {
-      status: 503,
-      error: 'Extração server-side de PDF ainda não configurada. A análise permaneceu bloqueada com segurança.',
-    };
+  if (code === 'source_pdf_too_many_pages' || code === 'source_pdf_extracted_text_too_large') {
+    return { status: 413, error: 'O PDF excede os limites seguros de processamento desta etapa de análise.' };
+  }
+  if (code === 'source_pdf_extraction_timeout') {
+    return { status: 504, error: 'A extração textual do PDF excedeu o tempo seguro de processamento.' };
+  }
+  if (code === 'source_pdf_text_not_extractable') {
+    return { status: 422, error: 'O PDF não contém texto extraível. OCR será necessário para este documento.' };
   }
   if (code.startsWith('source_document_type_not_supported:')) {
     return { status: 415, error: 'Tipo de documento ainda não suportado pelo Case Analyst.' };
