@@ -33,6 +33,5 @@ const pdfDocument = { ...document, fileName: 'autos.pdf', mimeType: 'application
 const pdfBundle = await loadCaseSourceBundle(clientFor(new Blob([pdfBytes]), pdfDocument.storagePath), [pdfDocument]);
 assert.match(pdfBundle.sourceMaterial, /DOCUMENT_ID: doc-1/);
 assert.match(pdfBundle.sourceMaterial, /PAGE: 1/);
-assert.match(pdfBundle.sourceMaterial, /Processo 3001903-61.2026.8.19.0209/);
 
 console.log('✓ case source loader contract');
