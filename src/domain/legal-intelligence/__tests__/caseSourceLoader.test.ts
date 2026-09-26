@@ -52,11 +52,7 @@ assert.match(pdfBundle.sourceMaterial, /3001903-61.2026.8.19.0209/);
 
 await assert.rejects(
   () => loadCaseSourceBundle(
-    new Proxy(clientFor(new Blob(['%PDF-1.7']), pdfDocument.storagePath), {
-      get(target, prop) {
-        return (target as any)[prop];
-      },
-    }),
+    clientFor(new Blob(['%PDF-1.7']), pdfDocument.storagePath),
     [pdfDocument],
     { pdfTextExtractor: async () => { throw new Error('source_pdf_text_not_extractable'); } },
   ),
