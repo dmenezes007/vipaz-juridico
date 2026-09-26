@@ -1,22 +1,73 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Check, ChevronRight, FileCheck2, FileText, Layers3, Library, Radar, Send, ShieldCheck, Sparkles, Workflow } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  FileCheck2,
+  FileText,
+  Files,
+  Layers3,
+  Library,
+  Radar,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Workflow,
+} from 'lucide-react';
 
 interface LandingPageProps { onNavigate: (path: string) => void; }
 
 const journey = [
-  { name:'Caso', eyebrow:'01 · Compreender', title:'Centralize o contexto antes de redigir.', text:'Autos, partes, objeto da lide e informações relevantes passam a compor uma base estruturada para o trabalho jurídico.', detail:'O documento deixa de começar em uma página em branco: começa pela compreensão do caso.', icon:FileText },
-  { name:'Estratégia', eyebrow:'02 · Decidir', title:'Converta contexto em escolhas jurídicas.', text:'Regras, teses, preliminares e condicionantes são selecionadas conforme a natureza da demanda e os dados informados.', detail:'A automação apoia a decisão sem substituir a revisão profissional.', icon:Workflow },
-  { name:'Estrutura', eyebrow:'03 · Organizar', title:'Monte uma arquitetura coerente e auditável.', text:'Blocos homologados, conteúdo individualizado e campos assistidos são combinados em uma estrutura revisável antes da geração.', detail:'Você enxerga o mapa da peça antes de produzir o documento final.', icon:Layers3 },
-  { name:'Documento', eyebrow:'04 · Produzir', title:'Gere, revise e entregue com controle.', text:'O resultado permanece editável e segue para produção documental preservando a lógica jurídica definida ao longo do fluxo.', detail:'Da estrutura ao DOCX, cada etapa mantém rastreabilidade e possibilidade de revisão.', icon:FileCheck2 },
+  {
+    name: 'Contexto',
+    eyebrow: '01 · Compreender',
+    title: 'Reúna autos e documentos que realmente importam.',
+    text: 'Envie os autos em PDF e acrescente outros documentos que possam contribuir para a análise: contratos, pareceres, normas, comunicações, documentos técnicos e demais subsídios relevantes.',
+    detail: 'O trabalho não começa em uma página em branco. Começa com um conjunto documental organizado, rastreável e preparado para análise.',
+    icon: Files,
+  },
+  {
+    name: 'Estratégia',
+    eyebrow: '02 · Decidir',
+    title: 'Transforme contexto em escolhas jurídicas fundamentadas.',
+    text: 'A inteligência do sistema estrutura fatos, evidências, controvérsias e questões jurídicas para apoiar a seleção das teses e dos caminhos de atuação pertinentes ao caso.',
+    detail: 'A tecnologia apoia a decisão sem retirar do profissional a responsabilidade pela análise e pela revisão.',
+    icon: Workflow,
+  },
+  {
+    name: 'Estrutura',
+    eyebrow: '03 · Organizar',
+    title: 'Monte uma arquitetura jurídica coerente e auditável.',
+    text: 'Conhecimento institucional, modelos validados e conteúdo individualizado são combinados em uma estrutura revisável antes da produção do documento.',
+    detail: 'Você acompanha a lógica da peça antes de transformar a estratégia em texto final.',
+    icon: Layers3,
+  },
+  {
+    name: 'Documento',
+    eyebrow: '04 · Produzir',
+    title: 'Produza, revise e entregue com controle.',
+    text: 'A estrutura aprovada é transformada em documento editável, preservando a lógica jurídica, as fontes utilizadas e os pontos que exigem revisão profissional.',
+    detail: 'Da análise ao documento final, o processo mantém rastreabilidade e espaço para intervenção humana.',
+    icon: FileCheck2,
+  },
 ] as const;
 
 const modules = [
   {name:'Matters',desc:'Organize casos, partes, documentos e contexto em um espaço de trabalho único.',verb:'Organizar',icon:Layers3},
   {name:'Monitor',desc:'Acompanhe eventos, pendências e sinais que exigem atenção jurídica.',verb:'Acompanhar',icon:Radar},
-  {name:'Studio',desc:'Estruture e produza peças com regras, modelos e assistência de IA.',verb:'Produzir',icon:Sparkles},
+  {name:'Studio',desc:'Estruture e produza peças jurídicas com regras, modelos e assistência de IA.',verb:'Produzir',icon:Sparkles},
   {name:'Delivery',desc:'Conclua, versione e disponibilize documentos prontos para uso.',verb:'Entregar',icon:Send},
   {name:'Library',desc:'Preserve modelos, blocos e conhecimento jurídico institucional validado.',verb:'Preservar',icon:Library},
 ] as const;
+
+const documentTypes = [
+  'Contestações e recursos',
+  'Pareceres e manifestações',
+  'Ofícios e respostas institucionais',
+  'Documentos de procuradorias',
+  'Peças da Administração Pública',
+  'Outros documentos jurídicos',
+];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [activeStep,setActiveStep]=useState(0);
@@ -48,16 +99,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         <section className="pt-40 pb-20 px-6">
           <div className="mx-auto max-w-[1180px] grid lg:grid-cols-12 gap-14 items-end">
             <div className="lg:col-span-8">
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-cyan-300"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse"/>Produção jurídica estruturada</div>
-              <h1 className="max-w-[900px] text-[clamp(3.3rem,7.3vw,7.2rem)] leading-[.91] tracking-[-.055em] font-semibold">Do caso ao documento.<span className="block text-white/35">Com método.</span></h1>
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-cyan-300"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-pulse"/>Inteligência jurídica institucional</div>
+              <h1 className="max-w-[900px] text-[clamp(3.3rem,7.3vw,7.2rem)] leading-[.91] tracking-[-.055em] font-semibold">Do contexto jurídico<br/><span className="text-white/35">ao documento.</span></h1>
             </div>
             <div className="lg:col-span-4 lg:pb-3">
-              <p className="text-[15px] leading-7 text-white/55 max-w-sm">Organize o contexto, aplique regras jurídicas, use IA de forma assistida e transforme uma estrutura revisada em um documento profissional.</p>
-              <button onClick={()=>onNavigate('/login')} className="mt-8 inline-flex items-center gap-3 text-[13px] font-semibold group">Começar agora <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition"><ArrowRight className="w-4 h-4"/></span></button>
+              <p className="text-[15px] leading-7 text-white/55 max-w-sm">O VIPAZ organiza autos e documentos de apoio, estrutura fatos e questões jurídicas, transforma conhecimento institucional em estratégia e conduz a produção de peças jurídicas revisáveis e editáveis.</p>
+              <button onClick={()=>onNavigate('/login')} className="mt-8 inline-flex items-center gap-3 text-[13px] font-semibold group">Conhecer a plataforma <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition"><ArrowRight className="w-4 h-4"/></span></button>
             </div>
           </div>
+
           <div className="mx-auto max-w-[1180px] mt-20 grid grid-cols-2 md:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/[.07] bg-white/[.07]">
-            {[['01','Contexto estruturado'],['02','Regras aplicáveis'],['03','Revisão humana'],['04','Documento editável']].map(([n,label])=><div key={n} className="bg-[#0a0e14] px-5 py-4 flex items-center gap-3"><span className="text-[10px] font-mono text-cyan-300/70">{n}</span><span className="text-[11px] text-white/55">{label}</span></div>)}
+            {[['01','Contexto documental'],['02','Estratégia jurídica'],['03','Revisão profissional'],['04','Documento editável']].map(([n,label])=><div key={n} className="bg-[#0a0e14] px-5 py-4 flex items-center gap-3"><span className="text-[10px] font-mono text-cyan-300/70">{n}</span><span className="text-[11px] text-white/55">{label}</span></div>)}
+          </div>
+        </section>
+
+        <section className="border-y border-white/[.07] px-6 py-20">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-5">
+              <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-3">Base documental</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Não é só o processo. É o contexto necessário para produzir a peça.</h2></div>
+              <p className="max-w-md text-[13px] leading-6 text-white/40">Além dos autos em PDF, o fluxo pode considerar documentos complementares em PDF que ajudem a compreender o caso e construir o documento jurídico.</p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-px bg-white/[.08] border border-white/[.08] rounded-2xl overflow-hidden">
+              <div className="bg-[#0d1118] p-7 md:p-9">
+                <div className="w-11 h-11 rounded-xl border border-cyan-300/20 bg-cyan-300/[.05] grid place-items-center"><FileText className="w-5 h-5 text-cyan-300"/></div>
+                <h3 className="mt-7 text-xl font-semibold tracking-[-.025em]">Autos e documentos do caso</h3>
+                <p className="mt-3 text-[13px] leading-6 text-white/45">O material principal que registra a demanda, seus fatos, pedidos, manifestações e decisões existentes.</p>
+              </div>
+              <div className="bg-[#0d1118] p-7 md:p-9">
+                <div className="w-11 h-11 rounded-xl border border-cyan-300/20 bg-cyan-300/[.05] grid place-items-center"><Files className="w-5 h-5 text-cyan-300"/></div>
+                <h3 className="mt-7 text-xl font-semibold tracking-[-.025em]">Documentos complementares em PDF</h3>
+                <p className="mt-3 text-[13px] leading-6 text-white/45">Contratos, pareceres, normas, documentos técnicos, comunicações e outros subsídios que possam contribuir para a melhor produção jurídica.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-6 py-20">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
+              <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-3">Produção jurídica</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Para além da peça forense.</h2></div>
+              <p className="max-w-lg text-[13px] leading-6 text-white/40">A mesma inteligência de produção pode apoiar documentos destinados ao Judiciário, à advocacia consultiva, às procuradorias e à Administração Pública.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {documentTypes.map(type=><span key={type} className="rounded-full border border-white/[.09] bg-white/[.025] px-4 py-2.5 text-[11px] text-white/55">{type}</span>)}
+            </div>
           </div>
         </section>
 
@@ -92,21 +177,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
         <section className="px-6 pb-28">
           <div className="mx-auto max-w-[1180px] rounded-[28px] bg-[#0d1118] border border-white/[.07] p-8 sm:p-12 lg:p-16 grid lg:grid-cols-2 gap-14">
-            <div><ShieldCheck className="w-5 h-5 text-cyan-300 mb-8"/><div className="text-[10px] uppercase tracking-[.16em] text-white/30 mb-3">Controle profissional</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Tecnologia sem tirar o advogado do centro.</h2><p className="mt-5 text-[13px] leading-6 text-white/40 max-w-md">Automação e IA entram onde agregam velocidade. Decisão, revisão e validação permanecem visíveis e controláveis.</p></div>
+            <div><ShieldCheck className="w-5 h-5 text-cyan-300 mb-8"/><div className="text-[10px] uppercase tracking-[.16em] text-white/30 mb-3">Controle profissional</div><h2 className="text-3xl sm:text-4xl tracking-[-.035em] font-semibold">Tecnologia sem tirar o profissional do centro.</h2><p className="mt-5 text-[13px] leading-6 text-white/40 max-w-md">Automação e IA entram onde agregam velocidade e estrutura. Decisão, revisão e validação permanecem visíveis e controláveis.</p></div>
             <div className="space-y-5 text-[13px] text-white/50">
-              {['Arquiteturas e modelos jurídicos validados.','Automação determinística para decisões estruturais.','Inteligência artificial opcional, assistida e editável.','Revisão da estrutura antes da produção documental.','Conhecimento institucional preservado para reutilização.'].map((x,i)=><div key={x} className="group flex gap-4 border-b border-white/[.07] pb-5"><span className="text-[10px] font-mono text-white/20">0{i+1}</span><Check className="w-4 h-4 text-cyan-300 shrink-0"/><span className="group-hover:text-white/75 transition">{x}</span></div>)}
+              {['Contexto documental com fontes identificáveis.','Arquiteturas e modelos jurídicos validados.','Inteligência artificial assistida e editável.','Revisão da estrutura antes da produção documental.','Conhecimento institucional preservado para reutilização.'].map((x,i)=><div key={x} className="group flex gap-4 border-b border-white/[.07] pb-5"><span className="text-[10px] font-mono text-white/20">0{i+1}</span><Check className="w-4 h-4 text-cyan-300 shrink-0"/><span className="group-hover:text-white/75 transition">{x}</span></div>)}
             </div>
           </div>
         </section>
 
         <section className="px-6 py-28 border-t border-white/[.07]">
           <div className="mx-auto max-w-[1180px] flex flex-col lg:flex-row lg:items-end justify-between gap-10">
-            <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-4">VIPAZ Jurídico</div><h2 className="text-4xl sm:text-6xl tracking-[-.05em] font-semibold">Produza com estrutura.<br/><span className="text-white/35">Revise com controle.</span></h2></div>
-            <div className="max-w-sm"><p className="text-[13px] leading-6 text-white/45">Entre no ambiente de trabalho e transforme contexto jurídico em uma produção consistente, rastreável e pronta para revisão.</p><button onClick={()=>onNavigate('/login')} className="mt-7 inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-black hover:bg-cyan-100 transition">Acessar VIPAZ Jurídico <ArrowRight className="w-4 h-4"/></button></div>
+            <div><div className="text-[10px] uppercase tracking-[.18em] text-cyan-300 mb-4">VIPAZ Jurídico</div><h2 className="text-4xl sm:text-6xl tracking-[-.05em] font-semibold">Conhecimento em contexto.<br/><span className="text-white/35">Estratégia em documento.</span></h2></div>
+            <div className="max-w-sm"><p className="text-[13px] leading-6 text-white/45">Entre no ambiente de trabalho e transforme contexto jurídico em produção consistente, rastreável e pronta para revisão.</p><button onClick={()=>onNavigate('/login')} className="mt-7 inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-[13px] font-semibold text-black hover:bg-cyan-100 transition">Acessar VIPAZ Jurídico <ArrowRight className="w-4 h-4"/></button></div>
           </div>
         </section>
       </main>
-      <footer className="border-t border-white/[.07] px-6 py-8 text-[11px] text-white/30"><div className="mx-auto max-w-[1180px] flex justify-between"><span>VIPAZ Jurídico · Produção jurídica estruturada</span><span>© {new Date().getFullYear()}</span></div></footer>
+      <footer className="border-t border-white/[.07] px-6 py-8 text-[11px] text-white/30"><div className="mx-auto max-w-[1180px] flex justify-between"><span>VIPAZ Jurídico · Inteligência jurídica institucional</span><span>© {new Date().getFullYear()}</span></div></footer>
     </div>
   );
 };
