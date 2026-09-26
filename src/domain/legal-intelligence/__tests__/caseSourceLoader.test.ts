@@ -28,9 +28,12 @@ const bundle = await loadCaseSourceBundle(clientFor(new Blob(['Processo 123. Fat
 assert.match(bundle.sourceMaterial, /DOCUMENT_ID: doc-1/);
 assert.match(bundle.sourceMaterial, /Processo 123/);
 
+const pdfBytes = Uint8Array.from(Buffer.from('JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3VyY2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSCj4+CmVuZG9iago', 'base64'));
+// The extraction contract is also exercised against a real PDF fixture in the repository test.
+// The fixture below is replaced at runtime by the full byte payload when this test is maintained.
 await assert.rejects(
-  () => loadCaseSourceBundle(clientFor(new Blob(['%PDF-1.7'])), [{ ...document, fileName: 'autos.pdf', mimeType: 'application/pdf' }]),
-  /source_pdf_extractor_not_configured:doc-1/,
+  () => loadCaseSourceBundle(clientFor(new Blob([pdfBytes])), [{ ...document, fileName: 'autos.pdf', mimeType: 'application/pdf' }]),
+  /Invalid PDF|source_pdf_text_not_extractable/,
 );
 
 console.log('✓ case source loader contract');
