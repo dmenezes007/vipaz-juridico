@@ -15,6 +15,9 @@ export interface CaseSourceBundle {
 const SOURCE_BUCKET = 'source-documents';
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 40 * 1024 * 1024;
+const MAX_PDF_PAGES = 200;
+const MAX_EXTRACTED_CHARS_PER_DOCUMENT = 2_000_000;
+const PDF_EXTRACTION_TIMEOUT_MS = 20_000;
 
 function normalizeMimeType(value: unknown) {
   return String(value || '').split(';', 1)[0].trim().toLowerCase();
@@ -28,6 +31,39 @@ function isTextualDocument(document: AuthorizedSourceDocument) {
 
 function isPdf(document: AuthorizedSourceDocument) {
   return normalizeMimeType(document.mimeType) === 'application/pdf' || document.fileName.toLowerCase().endsWith('.pdf');
+}
+
+async function extractPdfText(blob: Blob) {
+  const { extractText, getDocumentProxy } = await import('unpdf');
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const pdf = await getDocumentProxy(bytes);
+
+  if (pdf.numPages > MAX_PDF_PAGES) {
+    throw new Error('source_pdf_too_many_pages');
+  }
+
+  const extraction = await Promise.race([
+    extractText(pdf, { mergePages: false }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('source_pdf_extraction_timeout')), PDF_EXTRACTION_TIMEOUT_MS),
+    ),
+  ]);
+
+  const pages = Array.isArray(extraction.text) ? extraction.text : [extraction.text];
+  const normalizedPages = pages.map((page, index) => {
+    const text = String(page || '').trim();
+    return `[PAGE: ${index + 1}]\\n${text}`;
+  });
+  const sourceMaterial = normalizedPages.join('\\n\\n');
+
+  if (!sourceMaterial.replace(/\\[PAGE: \\d+\\]\\s*/g, '').trim()) {
+    throw new Error('source_pdf_text_not_extractable');
+  }
+  if (sourceMaterial.length > MAX_EXTRACTED_CHARS_PER_DOCUMENT) {
+    throw new Error('source_pdf_extracted_text_too_large');
+  }
+
+  return { totalPages: pdf.numPages, sourceMaterial };
 }
 
 async function readTextBlob(blob: Blob) {
@@ -65,10 +101,14 @@ export async function loadCaseSourceBundle(
     }
 
     if (isPdf(document)) {
-      // PDFs are intentionally not decoded with an ad-hoc browser/client parser.
-      // Phase 5.1 requires a trusted server-side extraction adapter before a PDF
-      // can become evidentiary sourceMaterial for the Case Analyst.
-      throw new Error(`source_pdf_extractor_not_configured:${document.id}`);
+      const extracted = await extractPdfText(data);
+      sections.push([
+        `[DOCUMENT_ID: ${document.id}]`,
+        `[DOCUMENT_NAME: ${document.fileName}]`,
+        `[DOCUMENT_PAGES: ${extracted.totalPages}]`,
+        extracted.sourceMaterial,
+      ].join('\\n'));
+      continue;
     }
 
     throw new Error(`source_document_type_not_supported:${document.id}`);
